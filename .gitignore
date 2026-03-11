@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables — never commit secrets
+.env*
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Claude Code local memory (machine-specific)
+.claude/
+
+# Build output
+dist/
+build/
