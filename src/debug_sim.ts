@@ -49,8 +49,7 @@ const printState = (
   printBoard(state.board);
   console.log(`\n  turn       : ${YELLOW}${state.turn}${RESET}`);
   console.log(`  activeColor: ${state.activeColor ?? GREEN + 'null (free choice)' + RESET}`);
-  console.log(`  isGameOver : ${state.isGameOver}`);
-  console.log(`  winner     : ${state.winner ?? '—'}`);
+  console.log(`  status     : ${state.status}`);
 };
 
 // ---------------------------------------------------------------------------

@@ -52,6 +52,17 @@ export const COLOR_HEX: Readonly<Record<KamisadoColor, string>> = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// Game Status
+// ---------------------------------------------------------------------------
+
+export enum GameStatus {
+  Active     = 'ACTIVE',
+  WonPlayer1 = 'WON_PLAYER1', // White wins
+  WonPlayer2 = 'WON_PLAYER2', // Black wins
+  Draw       = 'DRAW',
+}
+
+// ---------------------------------------------------------------------------
 // Players
 // ---------------------------------------------------------------------------
 

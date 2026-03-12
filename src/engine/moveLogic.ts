@@ -5,7 +5,7 @@
  * All updates use immutable spread patterns; the input state is never mutated.
  */
 
-import { Player, BOARD_COLORS, BOARD_SIZE, type KamisadoColor } from '../constants/gameConstants';
+import { Player, GameStatus, BOARD_COLORS, BOARD_SIZE, type KamisadoColor } from '../constants/gameConstants';
 import type { GameState } from './gameState';
 import type { BoardPosition } from './moveValidator';
 import { isDeadlocked } from './moveValidator';
@@ -75,18 +75,35 @@ export const handleDeadlock = (gameState: GameState): GameState => {
       `[Kamisado] handleDeadlock: could not locate ${turn}'s ${activeColor} piece. ` +
       `Preserving current activeColor as fallback.`,
     );
-    return { ...gameState, turn: opponent(turn), selectedPiece: null };
+    return {
+      ...gameState,
+      turn:            opponent(turn),
+      selectedPiece:   null,
+      status:          GameStatus.Active,
+      isDeadlocked:    false,
+      deadlockedPiece: null,
+    };
   }
 
   // The new activeColor is the board color of the square the blocked piece stands on.
   const newActiveColor = BOARD_COLORS[blockedPiecePos.row][blockedPiecePos.col];
 
-  return {
+  const candidateState: GameState = {
     ...gameState,
-    turn:          opponent(turn),  // revert to the player who just moved
-    activeColor:   newActiveColor,  // lock them onto the cell color under the blocked piece
-    selectedPiece: null,
+    turn:            opponent(turn),   // revert to the player who just moved
+    activeColor:     newActiveColor,   // lock them onto the cell color under the blocked piece
+    selectedPiece:   null,
+    status:          GameStatus.Active,
+    isDeadlocked:    true,
+    deadlockedPiece: blockedPiecePos,
   };
+
+  // Double-deadlock: if the opponent is also stuck → draw (no banner, game ends)
+  if (isDeadlocked(candidateState)) {
+    return { ...candidateState, status: GameStatus.Draw, isDeadlocked: false, deadlockedPiece: null };
+  }
+
+  return candidateState;
 };
 
 // ---------------------------------------------------------------------------
@@ -128,23 +145,25 @@ export const makeMove = (
   // --- 3. Check win condition before switching turn ---
   if (isWinningMove(turn, to.row)) {
     return {
-      board:         newBoard as GameState['board'],
-      turn:          opponent(turn),
-      activeColor:   nextActiveColor,
-      selectedPiece: null,
-      isGameOver:    true,
-      winner:        turn,
+      board:           newBoard as GameState['board'],
+      turn:            opponent(turn),
+      activeColor:     nextActiveColor,
+      selectedPiece:   null,
+      status:          turn === Player.White ? GameStatus.WonPlayer1 : GameStatus.WonPlayer2,
+      isDeadlocked:    false,
+      deadlockedPiece: null,
     };
   }
 
   // --- 4. Build candidate next state (opponent's turn) ---
   const nextState: GameState = {
-    board:         newBoard as GameState['board'],
-    turn:          opponent(turn),
-    activeColor:   nextActiveColor,
-    selectedPiece: null,
-    isGameOver:    false,
-    winner:        null,
+    board:           newBoard as GameState['board'],
+    turn:            opponent(turn),
+    activeColor:     nextActiveColor,
+    selectedPiece:   null,
+    status:          GameStatus.Active,
+    isDeadlocked:    false,
+    deadlockedPiece: null,
   };
 
   // --- 5. Resolve deadlock immediately so the state is always actionable ---

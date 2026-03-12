@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  runOnJS,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -15,16 +16,33 @@ interface DragonProps {
   player: Player;
   cellSize: number;
   selected?: boolean;
+  /** If set, dragon slides in from this pixel offset (new-cell-relative coords). */
+  animateFrom?: { dx: number; dy: number };
+  onAnimationComplete?: () => void;
+  /** When toggled to true, plays a horizontal shake to signal the piece is blocked. */
+  shakeNow?: boolean;
   onPress?: () => void;
 }
 
-export default function Dragon({ color, player, cellSize, selected, onPress }: DragonProps): React.JSX.Element {
+export default function Dragon({
+  color,
+  player,
+  cellSize,
+  selected,
+  animateFrom,
+  onAnimationComplete,
+  shakeNow,
+  onPress,
+}: DragonProps): React.JSX.Element {
   const size = cellSize * 0.82;
   const stoneColor = player === Player.White ? '#FFFFFF' : '#1A1A1A';
   const kanjiColor = COLOR_HEX[color];
 
   const scale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
 
+  // Pulse when selected
   useEffect(() => {
     if (selected) {
       scale.value = withRepeat(
@@ -39,8 +57,36 @@ export default function Dragon({ color, player, cellSize, selected, onPress }: D
     }
   }, [selected]);
 
+  // Shake to signal piece is deadlocked
+  useEffect(() => {
+    if (!shakeNow) return;
+    translateX.value = withSequence(
+      withTiming(-6, { duration: 55 }),
+      withTiming( 6, { duration: 55 }),
+      withTiming(-4, { duration: 55 }),
+      withTiming( 4, { duration: 55 }),
+      withTiming( 0, { duration: 55 }),
+    );
+  }, [shakeNow]);
+
+  // Slide-in from previous cell position
+  useEffect(() => {
+    if (!animateFrom) return;
+    translateX.value = animateFrom.dx;
+    translateY.value = animateFrom.dy;
+    translateX.value = withTiming(0, { duration: 280 });
+    translateY.value = withTiming(0, { duration: 280 }, (finished) => {
+      'worklet';
+      if (finished && onAnimationComplete) runOnJS(onAnimationComplete)();
+    });
+  }, [animateFrom]);
+
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
   }));
 
   const handlePress = (): void => {

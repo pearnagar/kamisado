@@ -10,6 +10,8 @@ import {
   type Piece,
   type KamisadoColor,
   Player,
+  GameStatus,
+  BOARD_SIZE,
   INITIAL_PIECES_POSITION,
 } from '../constants/gameConstants';
 
@@ -30,13 +32,16 @@ export interface GameState {
   /**
    * The color that the current player MUST move this turn.
    * Determined by the color of the cell where the previous move landed.
-   * null only at game start — Black moves any piece freely on the first turn.
+   * null only at game start — White moves any piece freely on the first turn.
    */
   readonly activeColor:   KamisadoColor | null;
   /** UI-only: the [row, col] of the piece the current player has tapped/selected. */
   readonly selectedPiece: { readonly row: number; readonly col: number } | null;
-  readonly isGameOver:    boolean;
-  readonly winner:        Player | null;
+  readonly status:        GameStatus;
+  /** True for exactly one state transition after a single-player deadlock, so the UI can animate and notify. */
+  readonly isDeadlocked:     boolean;
+  /** Position of the piece that was blocked. Set alongside isDeadlocked; null otherwise. */
+  readonly deadlockedPiece:  { readonly row: number; readonly col: number } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -44,7 +49,7 @@ export interface GameState {
 // ---------------------------------------------------------------------------
 
 const buildEmptyBoard = (): (Piece | null)[][] =>
-  Array.from({ length: 8 }, () => Array<Piece | null>(8).fill(null));
+  Array.from({ length: BOARD_SIZE }, () => Array<Piece | null>(BOARD_SIZE).fill(null));
 
 /**
  * Factory for the canonical starting state.
@@ -59,14 +64,18 @@ export const createInitialGameState = (): GameState => {
   }
 
   return {
-    board:         board as BoardState,
-    turn:          Player.White, // White (PLAYER1) always moves first
-    activeColor:   null,         // Free choice on the opening move
-    selectedPiece: null,
-    isGameOver:    false,
-    winner:        null,
+    board:            board as BoardState,
+    turn:             Player.White, // White (PLAYER1) always moves first
+    activeColor:      null,         // Free choice on the opening move
+    selectedPiece:    null,
+    status:           GameStatus.Active,
+    isDeadlocked:     false,
+    deadlockedPiece:  null,
   };
 };
 
 /** Canonical starting state — treat as immutable; call createInitialGameState() for a fresh copy. */
 export const initialGameState: GameState = createInitialGameState();
+
+/** Returns a brand-new initial GameState. Call this to restart the game. */
+export const resetGame = (): GameState => createInitialGameState();
