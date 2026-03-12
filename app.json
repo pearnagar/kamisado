@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Kamisado",
+    "slug": "kamisado-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F172A"
+      },
+      "package": "com.peer.kamisado",
+      "versionCode": 1
+    },
+    "plugins": [
+      
+    ]
+  }
+}

@@ -22,11 +22,12 @@
  *   Row 7: Brown Green Red Yellow Pink Purple Blue Orange
  */
 
-import { Player, GameStatus, KamisadoColor, BOARD_SIZE, BOARD_COLORS } from '../../constants/gameConstants';
+import { Player, GameStatus, GameMode, KamisadoColor, BOARD_SIZE, BOARD_COLORS } from '../../constants/gameConstants';
 import type { GameState, BoardState } from '../gameState';
 import { getLegalMoves, getAvailablePieces } from '../moveValidator';
 import { makeMove, handleDeadlock } from '../moveLogic';
 import { findBestMove, evaluateBoard } from '../aiEngine';
+import { MatchStrategy } from '../scoringLogic';
 import { describe, test, expect } from '@jest/globals';
 
 // ---------------------------------------------------------------------------
@@ -49,6 +50,9 @@ const makeState = (overrides: Partial<GameState> & { board: BoardState }): GameS
   isDeadlocked:   false,
   deadlockedPiece: null,
   moveHistory:    [],
+  gameMode:       GameMode.Single,
+  matchScore:     { p1: 0, p2: 0 },
+  roundNumber:    1,
   ...overrides,
 });
 
@@ -615,5 +619,135 @@ describe('8 — getAvailablePieces', () => {
     const available = getAvailablePieces(state);
     expect(available).toHaveLength(1);
     expect(available[0]).toEqual({ row: 0, col: 1 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. Match Scoring — Best of 3 (MatchStrategy + makeMove integration)
+// ---------------------------------------------------------------------------
+
+describe('9 — Match Scoring (Best of 3)', () => {
+  const strategy = new MatchStrategy(); // default target = 3
+
+  test('round win for Black increments p2 score and resets the board', () => {
+    const state  = makeState({ board: emptyBoard() as BoardState, gameMode: GameMode.Match });
+    const result = strategy.handleRoundEnd(state, Player.Black);
+
+    expect(result.matchScore.p2).toBe(1);
+    expect(result.matchScore.p1).toBe(0);
+    expect(result.roundNumber).toBe(2);
+    expect(result.status).toBe(GameStatus.Active);
+    // Fresh board should have all 16 pieces
+    expect(result.board.flat().filter(p => p !== null).length).toBe(16);
+  });
+
+  test('round win for White increments p1 score', () => {
+    const state  = makeState({ board: emptyBoard() as BoardState, gameMode: GameMode.Match });
+    const result = strategy.handleRoundEnd(state, Player.White);
+
+    expect(result.matchScore.p1).toBe(1);
+    expect(result.matchScore.p2).toBe(0);
+    expect(result.status).toBe(GameStatus.Active);
+  });
+
+  test('score accumulates: Black at 2 wins, match still Active', () => {
+    const state = makeState({
+      board:       emptyBoard() as BoardState,
+      gameMode:    GameMode.Match,
+      matchScore:  { p1: 0, p2: 1 },
+      roundNumber: 2,
+    });
+    const result = strategy.handleRoundEnd(state, Player.Black);
+
+    expect(result.matchScore.p2).toBe(2);
+    expect(result.status).toBe(GameStatus.Active);
+    expect(result.roundNumber).toBe(3);
+  });
+
+  test('3rd win for Black ends the match as WonPlayer2', () => {
+    const state = makeState({
+      board:       emptyBoard() as BoardState,
+      gameMode:    GameMode.Match,
+      matchScore:  { p1: 0, p2: 2 },
+      roundNumber: 3,
+    });
+    const result = strategy.handleRoundEnd(state, Player.Black);
+
+    expect(result.matchScore.p2).toBe(3);
+    expect(result.status).toBe(GameStatus.WonPlayer2);
+  });
+
+  test('3rd win for White ends the match as WonPlayer1', () => {
+    const state = makeState({
+      board:       emptyBoard() as BoardState,
+      gameMode:    GameMode.Match,
+      matchScore:  { p1: 2, p2: 0 },
+      roundNumber: 3,
+    });
+    const result = strategy.handleRoundEnd(state, Player.White);
+
+    expect(result.matchScore.p1).toBe(3);
+    expect(result.status).toBe(GameStatus.WonPlayer1);
+  });
+
+  test('loser moves first in the next round', () => {
+    // Black wins → White (loser) moves first
+    const r1 = strategy.handleRoundEnd(
+      makeState({ board: emptyBoard() as BoardState, gameMode: GameMode.Match }),
+      Player.Black,
+    );
+    expect(r1.turn).toBe(Player.White);
+
+    // White wins → Black (loser) moves first
+    const r2 = strategy.handleRoundEnd(
+      makeState({ board: emptyBoard() as BoardState, gameMode: GameMode.Match }),
+      Player.White,
+    );
+    expect(r2.turn).toBe(Player.Black);
+  });
+
+  test('makeMove back-rank win in Match mode resets the board (integration)', () => {
+    // Black Orange piece at row 6 col 0, one step from White's home rank.
+    const board = emptyBoard() as any;
+    board[6][0] = { color: KamisadoColor.Orange, player: Player.Black };
+    board[7][7] = { color: KamisadoColor.Brown,  player: Player.White };
+
+    const state = makeState({
+      board:       board as BoardState,
+      turn:        Player.Black,
+      activeColor: null,        // free choice — no forced-colour check
+      gameMode:    GameMode.Match,
+    });
+
+    const result = makeMove(state, { row: 6, col: 0 }, { row: 7, col: 0 });
+
+    expect(result.matchScore.p2).toBe(1);
+    expect(result.roundNumber).toBe(2);
+    expect(result.status).toBe(GameStatus.Active);
+    expect(result.board.flat().filter(p => p !== null).length).toBe(16);
+  });
+
+  test('M6 forfeit still fires inside Match mode and gameMode is preserved', () => {
+    // Same fixture as buildM6State() in Suite 2, with gameMode: Match.
+    // White Brown piece at (7,0) is required so double-forfeit check doesn't trigger.
+    const board = emptyBoard() as any;
+    board[2][5] = { color: KamisadoColor.Brown,  player: Player.Black };
+    board[3][5] = { color: KamisadoColor.Red,    player: Player.White }; // straight
+    board[3][4] = { color: KamisadoColor.Blue,   player: Player.White }; // diagonal-left
+    board[3][6] = { color: KamisadoColor.Green,  player: Player.White }; // diagonal-right
+    board[7][0] = { color: KamisadoColor.Brown,  player: Player.White }; // escapes double-forfeit
+
+    const state = makeState({
+      board:       board as BoardState,
+      turn:        Player.Black,
+      activeColor: KamisadoColor.Brown,
+      gameMode:    GameMode.Match,
+    });
+
+    const result = handleDeadlock(state);
+
+    expect(result.isDeadlocked).toBe(true);
+    expect(result.turn).toBe(Player.White);        // M6: revert to opponent
+    expect(result.gameMode).toBe(GameMode.Match);  // scoring mode preserved
   });
 });

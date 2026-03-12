@@ -24,7 +24,7 @@
 - [x] Drag-and-drop with Reanimated (lift, ghost, snap-back)
 - [x] Valid move highlights animate in on piece select
 - [x] Piece placement transition (slide to cell, not teleport)
-- [ ] Win screen animation
+- [x] Win screen animation
 - [x] `expo-haptics` on all interactions (select / place / invalid / win)
 - [ ] Sound FX via `expo-av` (piece click, slide, win fanfare)
 - [x] Active dragon pulsing indicator (colorblind-safe)
@@ -59,9 +59,9 @@
 ## Phase 4: Scoring Modes & Store Launch
 **Goal:** Feature-complete, on Google Play.
 
-- [ ] `LongGameStrategy`: best-of series, running score
-- [ ] `MarathonStrategy`: point accumulation across rounds
-- [ ] Mode selection integrated into game flow
+- [x] `MatchStrategy`: best-of series, running score (`src/engine/scoringLogic.ts`)
+- [x] `MarathonStrategy`: point accumulation across rounds (escalating pts per round)
+- [x] Mode selection integrated into game flow (`ModeSelector`, `ScoreHeader` components)
 - [ ] Google Play Store assets: icon, feature graphic, screenshots (phone + tablet)
 - [ ] App signing via EAS (`eas build --profile production` → AAB)
 - [ ] Play Store listing: description, content rating, privacy policy

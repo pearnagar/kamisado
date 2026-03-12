@@ -63,6 +63,19 @@ export enum GameStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Game Mode
+// ---------------------------------------------------------------------------
+
+export enum GameMode {
+  /** Single game — first to reach the back rank wins outright. */
+  Single   = 'Single',
+  /** Match — first player to win a target number of rounds wins the match. */
+  Match    = 'Match',
+  /** Marathon — accumulate points over rounds; first to the point target wins. */
+  Marathon = 'Marathon',
+}
+
+// ---------------------------------------------------------------------------
 // Players
 // ---------------------------------------------------------------------------
 

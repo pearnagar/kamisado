@@ -11,6 +11,7 @@ import {
   type KamisadoColor,
   Player,
   GameStatus,
+  GameMode,
   BOARD_SIZE,
   INITIAL_PIECES_POSITION,
 } from '../constants/gameConstants';
@@ -47,6 +48,14 @@ export interface GameState {
    * Used to detect M8 repetition loops — if the same position recurs the mover loses.
    */
   readonly moveHistory:      readonly string[];
+
+  // --- Scoring ---
+  /** Which scoring variant is being played. */
+  readonly gameMode:    GameMode;
+  /** Running score: p1 = White (Player1), p2 = Black (Player2). */
+  readonly matchScore:  { readonly p1: number; readonly p2: number };
+  /** Starts at 1; increments each time a new round begins (Match / Marathon only). */
+  readonly roundNumber: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,6 +86,9 @@ export const createInitialGameState = (): GameState => {
     isDeadlocked:     false,
     deadlockedPiece:  null,
     moveHistory:      [],
+    gameMode:         GameMode.Single,
+    matchScore:       { p1: 0, p2: 0 },
+    roundNumber:      1,
   };
 };
 

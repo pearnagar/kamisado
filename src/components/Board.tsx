@@ -2,13 +2,15 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { BOARD_COLORS, BOARD_SIZE, GameStatus, KamisadoColor, Player } from '../constants/gameConstants';
-import { GameState, createInitialGameState, resetGame } from '../engine/gameState';
+import { BOARD_COLORS, BOARD_SIZE, GameMode, GameStatus, KamisadoColor, Player } from '../constants/gameConstants';
+import { GameState, createInitialGameState } from '../engine/gameState';
 import { getLegalMoves, getAvailablePieces } from '../engine/moveValidator';
 import { makeMove } from '../engine/moveLogic';
 import { findBestMove } from '../engine/aiEngine';
 import Cell from './Cell';
 import Dragon from './Dragon';
+import ModeSelector from './ModeSelector';
+import ScoreHeader from './ScoreHeader';
 import WinOverlay from './WinOverlay';
 
 const CELL_SIZE  = 44;
@@ -17,8 +19,9 @@ const FLAT_BOARD_COLORS: readonly KamisadoColor[] = BOARD_COLORS.flat() as Kamis
 
 const AI_PLAYER = Player.Black;
 
-type GameMode   = 'PvE' | 'PvP';
-type Difficulty = 'Easy' | 'Medium' | 'Hard';
+/** PvE = vs Bot, PvP = pass-and-play */
+type OpponentMode = 'PvE' | 'PvP';
+type Difficulty   = 'Easy' | 'Medium' | 'Hard';
 
 const DIFFICULTY_DEPTH: Record<Difficulty, number> = {
   Easy:   2,
@@ -27,6 +30,12 @@ const DIFFICULTY_DEPTH: Record<Difficulty, number> = {
 };
 
 const DIFFICULTIES: Difficulty[] = ['Easy', 'Medium', 'Hard'];
+
+/** Creates a fresh board with the chosen scoring mode baked in. */
+const newGame = (mode: GameMode): GameState => ({
+  ...createInitialGameState(),
+  gameMode: mode,
+});
 
 function LegalMoveDot({ visible }: { visible: boolean }): React.JSX.Element {
   const opacity = useSharedValue(0);
@@ -61,21 +70,24 @@ interface BoardProps {
 }
 
 export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
-  const [gameState, setGameState]         = useState<GameState>(createInitialGameState);
+  const [gameState, setGameState]         = useState<GameState>(() => newGame(GameMode.Single));
   const [selectedPiece, setSelectedPiece] = useState<{ row: number; col: number } | null>(null);
   const [pendingMove, setPendingMove]     = useState<PendingMove | null>(null);
   const [isAiThinking, setIsAiThinking]   = useState(false);
-  const [gameMode, setGameMode]           = useState<GameMode>('PvE');
+  const [opponentMode, setOpponentMode]   = useState<OpponentMode>('PvE');
+  const [scoringMode, setScoringMode]     = useState<GameMode>(GameMode.Single);
   const [difficulty, setDifficulty]       = useState<Difficulty>('Medium');
 
   // Stable refs so async callbacks always read the latest values without
   // those values being in effect dependency arrays.
-  const gameStateRef   = useRef(gameState);
-  const difficultyRef  = useRef(difficulty);
-  const pendingMoveRef = useRef(pendingMove);
+  const gameStateRef    = useRef(gameState);
+  const difficultyRef   = useRef(difficulty);
+  const pendingMoveRef  = useRef(pendingMove);
+  const scoringModeRef  = useRef(scoringMode);
   gameStateRef.current   = gameState;
   difficultyRef.current  = difficulty;
   pendingMoveRef.current = pendingMove;
+  scoringModeRef.current = scoringMode;
 
   const isGameOver = gameState.status !== GameStatus.Active;
 
@@ -88,7 +100,7 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
   // `isDeadlocked` ensures the effect re-fires once the shake clears the flag.
   // -------------------------------------------------------------------------
   useEffect(() => {
-    if (gameMode !== 'PvE') return;
+    if (opponentMode !== 'PvE') return;
     if (gameState.status !== GameStatus.Active || gameState.turn !== AI_PLAYER) return;
     if (gameState.isDeadlocked) return;
     if (pendingMove !== null) return; // wait for slide animation to finish
@@ -103,7 +115,7 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
 
       // Re-validate — state or mode may have changed while the timer was pending
       if (
-        gameMode !== 'PvE' ||
+        opponentMode !== 'PvE' ||
         state.status !== GameStatus.Active ||
         state.turn !== AI_PLAYER ||
         state.isDeadlocked ||
@@ -127,7 +139,7 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
       cancelAnimationFrame(frameId);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState.turn, gameState.status, gameState.isDeadlocked, gameMode, pendingMove]);
+  }, [gameState.turn, gameState.status, gameState.isDeadlocked, opponentMode, pendingMove]);
 
   // -------------------------------------------------------------------------
   // Deadlock side-effects: haptics, notify parent, clear flag after 2 s
@@ -196,16 +208,16 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
 
   const handleReset = (): void => {
     setIsAiThinking(false);
-    setGameState(resetGame());
+    setGameState(newGame(scoringModeRef.current));
     setSelectedPiece(null);
     setPendingMove(null);
   };
 
-  const handleToggleMode = (): void => {
+  const handleToggleOpponent = (): void => {
     Haptics.selectionAsync();
-    setGameMode(prev => (prev === 'PvE' ? 'PvP' : 'PvE'));
+    setOpponentMode(prev => (prev === 'PvE' ? 'PvP' : 'PvE'));
     setIsAiThinking(false);
-    setGameState(resetGame());
+    setGameState(newGame(scoringModeRef.current));
     setSelectedPiece(null);
     setPendingMove(null);
   };
@@ -215,7 +227,16 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
     Haptics.selectionAsync();
     setDifficulty(next);
     setIsAiThinking(false);
-    setGameState(resetGame());
+    setGameState(newGame(scoringModeRef.current));
+    setSelectedPiece(null);
+    setPendingMove(null);
+  };
+
+  const handleSetScoringMode = (mode: GameMode): void => {
+    if (mode === scoringMode) return;
+    setScoringMode(mode);
+    setIsAiThinking(false);
+    setGameState(newGame(mode));
     setSelectedPiece(null);
     setPendingMove(null);
   };
@@ -234,6 +255,13 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
   // -------------------------------------------------------------------------
   return (
     <View style={styles.wrapper}>
+      {/* Score row — placeholder height in Single, live score in Match/Marathon */}
+      <ScoreHeader
+        gameMode={gameState.gameMode}
+        matchScore={gameState.matchScore}
+        roundNumber={gameState.roundNumber}
+      />
+
       {/* Board area */}
       <View style={styles.container}>
         <View style={styles.board}>
@@ -320,23 +348,28 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
           </View>
         )}
 
-        <WinOverlay status={gameState.status} onReset={handleReset} />
+        <WinOverlay
+          status={gameState.status}
+          gameMode={gameState.gameMode}
+          matchScore={gameState.matchScore}
+          onReset={handleReset}
+        />
       </View>
 
-      {/* Controls row: mode toggle + difficulty picker */}
+      {/* Controls row: opponent toggle + difficulty picker */}
       <View style={styles.controlsRow}>
-        {/* Mode toggle */}
+        {/* Opponent toggle */}
         <Pressable
-          onPress={handleToggleMode}
+          onPress={handleToggleOpponent}
           style={({ pressed }) => [styles.modeButton, pressed && styles.controlPressed]}
         >
           <Text style={styles.modeButtonText}>
-            {gameMode === 'PvE' ? 'vs Bot' : 'vs Human'}
+            {opponentMode === 'PvE' ? 'vs Bot' : 'vs Human'}
           </Text>
         </Pressable>
 
         {/* Difficulty segmented control — only meaningful in PvE */}
-        <View style={[styles.difficultyRow, gameMode === 'PvP' && styles.difficultyRowDisabled]}>
+        <View style={[styles.difficultyRow, opponentMode === 'PvP' && styles.difficultyRowDisabled]}>
           {DIFFICULTIES.map((level, i) => {
             const isActive = difficulty === level;
             const isFirst  = i === 0;
@@ -345,7 +378,7 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
               <Pressable
                 key={level}
                 onPress={() => handleSetDifficulty(level)}
-                disabled={gameMode === 'PvP'}
+                disabled={opponentMode === 'PvP'}
                 style={[
                   styles.diffSegment,
                   isFirst  && styles.diffSegmentFirst,
@@ -361,6 +394,9 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
           })}
         </View>
       </View>
+
+      {/* Scoring mode selector: Single | Match | Marathon */}
+      <ModeSelector value={scoringMode} onChange={handleSetScoringMode} />
     </View>
   );
 }
