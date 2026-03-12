@@ -60,7 +60,7 @@ export const createInitialGameState = (): GameState => {
 
   return {
     board:         board as BoardState,
-    turn:          Player.Black, // Black always moves first
+    turn:          Player.White, // White (PLAYER1) always moves first
     activeColor:   null,         // Free choice on the opening move
     selectedPiece: null,
     isGameOver:    false,

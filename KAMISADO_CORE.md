@@ -5,14 +5,14 @@
 
 ### Color Grid (Row 0 = Black's back rank)
 ```
-O  B  R  G  Y  P  M  Br   (row 0)
-R  O  G  M  B  Y  Br  P
+O  B  P  M  Y  R  G  Br   (row 0)
+R  O  M  G  B  Y  Br  P
 G  M  O  R  P  Br  Y  B
-M  G  B  O  Br  R  P  Y
-Y  P  R  Br  O  B  G  M
-P  Y  Br  B  R  O  M  G
-Br  R  Y  P  M  G  B  O
-B  M  P  Y  G  Br  O  R   (row 7 = White's back rank)
+M  P  B  O  Br  G  R  Y
+Y  R  G  Br  O  B  P  M
+B  Y  Br  P  R  O  M  G
+P  Br  Y  B  G  M  O  R
+Br  G  R  Y  M  P  B  O   (row 7 = White's back rank)
 ```
 Key: O=Orange, B=Blue, R=Red, G=Green, Y=Yellow, P=Purple, M=Magenta, Br=Brown
 

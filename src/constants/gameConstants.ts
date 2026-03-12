@@ -39,6 +39,18 @@ export const COLOR_KANJI: Readonly<Record<KamisadoColor, string>> = {
   [KamisadoColor.Brown]:  '龜', // Tortoise
 } as const;
 
+/** Hex color for rendering each dragon color in the UI. */
+export const COLOR_HEX: Readonly<Record<KamisadoColor, string>> = {
+  [KamisadoColor.Orange]: '#FF8C00',
+  [KamisadoColor.Blue]:   '#1E90FF',
+  [KamisadoColor.Purple]: '#9B30FF',
+  [KamisadoColor.Pink]:   '#FF69B4',
+  [KamisadoColor.Yellow]: '#FFD700',
+  [KamisadoColor.Red]:    '#DC143C',
+  [KamisadoColor.Green]:  '#228B22',
+  [KamisadoColor.Brown]:  '#8B4513',
+} as const;
+
 // ---------------------------------------------------------------------------
 // Players
 // ---------------------------------------------------------------------------
@@ -53,6 +65,8 @@ export enum Player {
 // ---------------------------------------------------------------------------
 // Board
 // ---------------------------------------------------------------------------
+
+export const BOARD_SIZE = 8;
 
 const O  = KamisadoColor.Orange;
 const B  = KamisadoColor.Blue;
@@ -71,14 +85,14 @@ const Br = KamisadoColor.Brown;
  */
 export const BOARD_COLORS: Readonly<KamisadoColor[][]> = [
   // col:  0   1   2   3    4   5    6   7
-  [        O,  B,  R,  G,   Y,  P,  Pk,  Br], // row 0 — Black's home rank
-  [        R,  O,  G, Pk,   B,  Y,  Br,  P ],
-  [        G, Pk,  O,  R,   P, Br,   Y,  B ],
-  [       Pk,  G,  B,  O,  Br,  R,   P,  Y ],
-  [        Y,  P,  R, Br,   O,  B,   G, Pk ],
-  [        P,  Y, Br,  B,   R,  O,  Pk,  G ],
-  [       Br,  R,  Y,  P,  Pk,  G,   B,  O ],
-  [        B, Pk,  P,  Y,   G, Br,   O,  R ], // row 7 — White's home rank
+  [        O,  B,  P,  Pk,  Y,  R,  G,  Br], // row 0
+  [        R,  O,  Pk, G,   B,  Y,  Br,  P ], // row 1
+  [        G, Pk,  O,  R,   P, Br,   Y,  B ], // row 2
+  [        Pk, P,  B,  O,  Br,  G,   R,  Y ], // row 3
+  [        Y,  R,  G, Br,   O,  B,   P,  Pk], // row 4
+  [        B,  Y, Br,  P,   R,  O,  Pk,  G ], // row 5
+  [        P,  Br, Y,  B,  G,  Pk,   O,  R ], // row 6
+  [        Br, G, R,  Y,   Pk,  P,   B,  O ], // row 7
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -88,13 +102,11 @@ export const BOARD_COLORS: Readonly<KamisadoColor[][]> = [
 export interface Piece {
   readonly color:  KamisadoColor;
   readonly player: Player;
-  readonly kanji:  string;
 }
 
 const makePiece = (color: KamisadoColor, player: Player): Piece => ({
   color,
   player,
-  kanji: COLOR_KANJI[color],
 });
 
 // ---------------------------------------------------------------------------
@@ -117,11 +129,11 @@ export interface PositionedPiece {
 export const INITIAL_PIECES_POSITION: readonly PositionedPiece[] = (() => {
   const pieces: PositionedPiece[] = [];
 
-  for (let col = 0; col < 8; col++) {
+  for (let col = 0; col < BOARD_SIZE; col++) {
     // Black: home row 0, piece color matches cell color
     pieces.push({ piece: makePiece(BOARD_COLORS[0][col], Player.Black), row: 0, col });
-    // White: home row 7, piece color matches cell color
-    pieces.push({ piece: makePiece(BOARD_COLORS[7][col], Player.White), row: 7, col });
+    // White: home row BOARD_SIZE-1, piece color matches cell color
+    pieces.push({ piece: makePiece(BOARD_COLORS[BOARD_SIZE - 1][col], Player.White), row: BOARD_SIZE - 1, col });
   }
 
   return pieces;
