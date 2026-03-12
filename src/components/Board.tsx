@@ -1,0 +1,98 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { View } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { BOARD_COLORS, KamisadoColor } from '../constants/gameConstants';
+import { GameState, createInitialGameState } from '../engine/gameState';
+import { getLegalMoves, getAvailablePieces } from '../engine/moveValidator';
+import Cell from './Cell';
+import Dragon from './Dragon';
+
+const BOARD_SIZE = 8;
+const CELL_SIZE = 44;
+const boardWidth = BOARD_SIZE * CELL_SIZE;
+
+function LegalMoveDot({ visible }: { visible: boolean }): React.JSX.Element {
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withTiming(visible ? 1 : 0, { duration: 200 });
+  }, [visible]);
+
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: 'absolute',
+          width: CELL_SIZE * 0.28,
+          height: CELL_SIZE * 0.28,
+          borderRadius: 999,
+          backgroundColor: 'rgba(255,255,255,0.75)',
+        },
+        style,
+      ]}
+    />
+  );
+}
+
+export default function Board(): React.JSX.Element {
+  const [gameState] = useState<GameState>(createInitialGameState);
+  const [selectedPiece, setSelectedPiece] = useState<{ row: number; col: number } | null>(null);
+
+  const availableSet = useMemo(() => {
+    const available = getAvailablePieces(gameState);
+    return new Set(available.map(p => p.row * BOARD_SIZE + p.col));
+  }, [gameState]);
+
+  const legalMoveIndices = useMemo(() => {
+    if (!selectedPiece) return new Set<number>();
+    const moves = getLegalMoves(gameState.board, selectedPiece.row, selectedPiece.col);
+    return new Set(moves.map(m => m.row * BOARD_SIZE + m.col));
+  }, [selectedPiece, gameState.board]);
+
+  const handleDragonPress = (row: number, col: number): void => {
+    if (!availableSet.has(row * BOARD_SIZE + col)) return;
+    setSelectedPiece(prev =>
+      prev?.row === row && prev?.col === col ? null : { row, col },
+    );
+  };
+
+  const cells: KamisadoColor[] = BOARD_COLORS.flat() as KamisadoColor[];
+
+  return (
+    <View style={{ width: boardWidth, height: boardWidth, flexDirection: 'row', flexWrap: 'wrap' }}>
+      {cells.map((color, index) => {
+        const row = Math.floor(index / BOARD_SIZE);
+        const col = index % BOARD_SIZE;
+        const piece = gameState.board[row][col];
+        const isSelected = selectedPiece?.row === row && selectedPiece?.col === col;
+        const isLegalMove = legalMoveIndices.has(index);
+
+        return (
+          <Cell
+            key={index}
+            color={color}
+            size={CELL_SIZE}
+            selected={isSelected}
+            onPress={piece === null ? () => {
+              if (selectedPiece && isLegalMove) setSelectedPiece(null);
+            } : undefined}
+          >
+            <LegalMoveDot visible={isLegalMove} />
+            {piece !== null && (
+              <Dragon
+                color={piece.color}
+                player={piece.player}
+                cellSize={CELL_SIZE}
+                selected={isSelected}
+                onPress={() => handleDragonPress(row, col)}
+              />
+            )}
+          </Cell>
+        );
+      })}
+    </View>
+  );
+}

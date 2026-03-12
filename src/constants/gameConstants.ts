@@ -71,14 +71,14 @@ const Br = KamisadoColor.Brown;
  */
 export const BOARD_COLORS: Readonly<KamisadoColor[][]> = [
   // col:  0   1   2   3    4   5    6   7
-  [        O,  B,  R,  G,   Y,  P,  Pk,  Br], // row 0 — Black's home rank
-  [        R,  O,  G, Pk,   B,  Y,  Br,  P ],
-  [        G, Pk,  O,  R,   P, Br,   Y,  B ],
-  [       Pk,  G,  B,  O,  Br,  R,   P,  Y ],
-  [        Y,  P,  R, Br,   O,  B,   G, Pk ],
-  [        P,  Y, Br,  B,   R,  O,  Pk,  G ],
-  [       Br,  R,  Y,  P,  Pk,  G,   B,  O ],
-  [        B, Pk,  P,  Y,   G, Br,   O,  R ], // row 7 — White's home rank
+  [        O,  B,  P,  Pk,  Y,  R,  G,  Br], // row 0
+  [        R,  O,  Pk, G,   B,  Y,  Br,  P ], // row 1
+  [        G, Pk,  O,  R,   P, Br,   Y,  B ], // row 2
+  [        Pk, P,  B,  O,  Br,  G,   R,  Y ], // row 3
+  [        Y,  R,  G, Br,   O,  B,   P,  Pk], // row 4
+  [        B,  Y, Br,  P,   R,  O,  Pk,  G ], // row 5
+  [        P,  Br, Y,  B,  G,  Pk,   O,  R ], // row 6
+  [        Br, G, R,  Y,   Pk,  P,   B,  O ], // row 7
 ] as const;
 
 // ---------------------------------------------------------------------------
