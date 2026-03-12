@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { memo, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  runOnJS,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -15,16 +16,33 @@ interface DragonProps {
   player: Player;
   cellSize: number;
   selected?: boolean;
+  /** If set, dragon slides OUT to this pixel offset (source-cell-relative coords). */
+  animateTo?: { dx: number; dy: number };
+  onAnimationComplete?: () => void;
+  /** When toggled to true, plays a horizontal shake to signal the piece is blocked. */
+  shakeNow?: boolean;
   onPress?: () => void;
 }
 
-export default function Dragon({ color, player, cellSize, selected, onPress }: DragonProps): React.JSX.Element {
+const Dragon = memo(function Dragon({
+  color,
+  player,
+  cellSize,
+  selected,
+  animateTo,
+  onAnimationComplete,
+  shakeNow,
+  onPress,
+}: DragonProps): React.JSX.Element {
   const size = cellSize * 0.82;
   const stoneColor = player === Player.White ? '#FFFFFF' : '#1A1A1A';
   const kanjiColor = COLOR_HEX[color];
 
   const scale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
 
+  // Pulse when selected
   useEffect(() => {
     if (selected) {
       scale.value = withRepeat(
@@ -39,8 +57,35 @@ export default function Dragon({ color, player, cellSize, selected, onPress }: D
     }
   }, [selected]);
 
+  // Shake to signal piece is deadlocked
+  useEffect(() => {
+    if (!shakeNow) return;
+    translateX.value = withSequence(
+      withTiming(-6, { duration: 55 }),
+      withTiming( 6, { duration: 55 }),
+      withTiming(-4, { duration: 55 }),
+      withTiming( 4, { duration: 55 }),
+      withTiming( 0, { duration: 55 }),
+    );
+  }, [shakeNow]);
+
+  // Slide out toward destination cell — board state updates only after this finishes.
+  // The Dragon starts at (0,0) (its natural cell position) so there is no ghost frame.
+  useEffect(() => {
+    if (!animateTo) return;
+    translateX.value = withTiming(animateTo.dx, { duration: 280 });
+    translateY.value = withTiming(animateTo.dy, { duration: 280 }, (finished) => {
+      'worklet';
+      if (finished && onAnimationComplete) runOnJS(onAnimationComplete)();
+    });
+  }, [animateTo]);
+
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
   }));
 
   const handlePress = (): void => {
@@ -49,7 +94,9 @@ export default function Dragon({ color, player, cellSize, selected, onPress }: D
   };
 
   return (
-    <Animated.View style={animatedStyle}>
+    // renderToHardwareTextureAndroid: composites into a GPU texture before
+    // drawing, eliminating redraws during transform-only animations on Android.
+    <Animated.View style={animatedStyle} renderToHardwareTextureAndroid>
       <Pressable
         onPress={handlePress}
         style={[styles.stone, { width: size, height: size, backgroundColor: stoneColor }]}
@@ -62,7 +109,19 @@ export default function Dragon({ color, player, cellSize, selected, onPress }: D
       </Pressable>
     </Animated.View>
   );
-}
+}, (prev, next) =>
+  prev.color              === next.color              &&
+  prev.player             === next.player             &&
+  prev.cellSize           === next.cellSize           &&
+  prev.selected           === next.selected           &&
+  prev.shakeNow           === next.shakeNow           &&
+  prev.onPress            === next.onPress            &&
+  prev.onAnimationComplete === next.onAnimationComplete &&
+  prev.animateTo?.dx      === next.animateTo?.dx      &&
+  prev.animateTo?.dy      === next.animateTo?.dy,
+);
+
+export default Dragon;
 
 const styles = StyleSheet.create({
   stone: {
