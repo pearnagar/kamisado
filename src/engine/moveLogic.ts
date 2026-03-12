@@ -15,6 +15,7 @@ import { Player, GameStatus, BOARD_COLORS, BOARD_SIZE, type KamisadoColor } from
 import type { GameState, BoardState } from './gameState';
 import type { BoardPosition } from './moveValidator';
 import { isDeadlocked } from './moveValidator';
+import { getStrategy } from './scoringLogic';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -209,21 +210,28 @@ export const makeMove = (
       isDeadlocked:    false,
       deadlockedPiece: null,
       moveHistory:     newHistory,
+      gameMode:        gameState.gameMode,
+      matchScore:      gameState.matchScore,
+      roundNumber:     gameState.roundNumber,
     };
   }
 
-  // --- 4. Check win condition ---
+  // --- 4. Check win condition — delegate to the active scoring strategy ---
   if (isWinningMove(turn, to.row)) {
-    return {
+    const postMoveState: GameState = {
       board:           newBoard as GameState['board'],
       turn:            nextTurn,
       activeColor:     nextActiveColor,
       selectedPiece:   null,
-      status:          turn === Player.White ? GameStatus.WonPlayer1 : GameStatus.WonPlayer2,
+      status:          GameStatus.Active,  // strategy will set the real status
       isDeadlocked:    false,
       deadlockedPiece: null,
       moveHistory:     newHistory,
+      gameMode:        gameState.gameMode,
+      matchScore:      gameState.matchScore,
+      roundNumber:     gameState.roundNumber,
     };
+    return getStrategy(gameState.gameMode).handleRoundEnd(postMoveState, turn);
   }
 
   // --- 5. Build candidate next state ---
@@ -236,6 +244,9 @@ export const makeMove = (
     isDeadlocked:    false,
     deadlockedPiece: null,
     moveHistory:     newHistory,
+    gameMode:        gameState.gameMode,
+    matchScore:      gameState.matchScore,
+    roundNumber:     gameState.roundNumber,
   };
 
   // --- 6. Resolve forfeit (M6) immediately so the state is always actionable ---

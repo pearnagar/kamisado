@@ -24,7 +24,7 @@
 - [x] Drag-and-drop with Reanimated (lift, ghost, snap-back)
 - [x] Valid move highlights animate in on piece select
 - [x] Piece placement transition (slide to cell, not teleport)
-- [ ] Win screen animation
+- [x] Win screen animation
 - [x] `expo-haptics` on all interactions (select / place / invalid / win)
 - [ ] Sound FX via `expo-av` (piece click, slide, win fanfare)
 - [x] Active dragon pulsing indicator (colorblind-safe)
@@ -56,13 +56,29 @@
 
 ---
 
-## Phase 4: Scoring Modes & Store Launch
-**Goal:** Feature-complete, on Google Play.
+## Phase 4: Scoring Modes & Timers ✅
+**Goal:** Match mode with chess clocks, fully integrated and tested.
 
-- [ ] `LongGameStrategy`: best-of series, running score
-- [ ] `MarathonStrategy`: point accumulation across rounds
-- [ ] Mode selection integrated into game flow
-- [ ] Google Play Store assets: icon, feature graphic, screenshots (phone + tablet)
+- [x] `IRoundStrategy` + `MatchStrategy` (best-of-3, 1 pt/round) — `src/engine/scoringLogic.ts`
+- [x] `MarathonStrategy` engine stub (deferred to Phase 5 — not exposed in UI)
+- [x] `ModeSelector` UI: `1 Game | Match (3)` segmented control
+- [x] `ScoreHeader`: live `Round N · White X — Y Black` bar (Match mode only)
+- [x] `ChessClock`: self-contained per-player countdown, `key`-remount reset pattern
+- [x] Timeout win conditions: `WonPlayer1_Timeout` / `WonPlayer2_Timeout`
+- [x] `WinOverlay` shows "by Timeout" and match score line
+- [x] AI clock ticks during minimax — no special-casing needed
+- [x] `app.json` created: `com.peer.kamisado`, `version: 1.0.0`
+- [x] **38/38 Jest unit tests** — run with `npm test`
+
+**Exit criteria:** Match mode is playable with chess clocks. ✓ Verified 2026-03-12.
+
+---
+
+## Phase 5: Store Launch
+**Goal:** App live on Google Play.
+
+- [ ] Marathon mode UI (engine already implemented)
+- [ ] Google Play Store assets: icon (1024×1024), feature graphic, screenshots
 - [ ] App signing via EAS (`eas build --profile production` → AAB)
 - [ ] Play Store listing: description, content rating, privacy policy
 - [ ] `eas submit` pipeline configured
