@@ -34,20 +34,25 @@
 
 ---
 
-## Phase 3: Gameplay Logic ← active
+## Phase 3: Gameplay Logic ✅
 **Goal:** Full turn loop, move execution, and win/deadlock handling wired to the UI.
 
-- [ ] Minimax algorithm with alpha-beta pruning
-- [ ] Evaluation heuristic: advancement score + mobility
-- [ ] Difficulty levels:
-  - Easy: depth 2, random tie-breaking
-  - Medium: depth 4
-  - Hard: depth 6+, optimized heuristic
-- [ ] AI runs off main thread (no UI jank during think time)
-- [ ] "Thinking" indicator while AI computes
-- [ ] Game mode selection screen (vs Human / vs AI + difficulty)
+- [x] Minimax with alpha-beta pruning (`src/engine/aiEngine.ts`)
+- [x] Evaluation heuristic: advancement score + mobility (`evaluateBoard`)
+- [x] Difficulty levels:
+  - [x] Easy: depth 2, random tie-breaking among equal-scored moves
+  - [x] Medium: depth 4
+  - [x] Hard: depth 6
+- [x] AI sequenced via `setTimeout` + `requestAnimationFrame` — no UI jank
+- [x] "Bot is thinking…" spinner while AI computes
+- [x] Game mode toggle: vs Human / vs Bot + Easy / Medium / Hard segmented control
+- [x] AI diagonal move blindness fixed: candidate pool + shuffle tie-breaking
+- [x] Rule M6 (forfeit): `handleDeadlock` + orange `StatusBanner` notification
+- [x] Rule M8 (loop): position-hash history → immediate loss for looping player
+- [x] Dragon animation overhaul: deferred `makeMove`, absolute overlay, z-index 1000
+- [x] **30/30 Jest unit tests** — run with `npm test`
 
-**Exit criteria:** Hard AI is genuinely challenging.
+**Exit criteria:** Hard AI is genuinely challenging. ✓ Verified 2026-03-12.
 
 ---
 
