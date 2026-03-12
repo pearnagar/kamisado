@@ -18,24 +18,24 @@
 
 ---
 
-## Phase 2: Feel & Polish
+## Phase 2: Feel & Polish ✅
 **Goal:** The game feels great to play on a phone.
 
-- [ ] Drag-and-drop with Reanimated (lift, ghost, snap-back)
-- [ ] Valid move highlights animate in on piece select
-- [ ] Piece placement transition (slide to cell, not teleport)
+- [x] Drag-and-drop with Reanimated (lift, ghost, snap-back)
+- [x] Valid move highlights animate in on piece select
+- [x] Piece placement transition (slide to cell, not teleport)
 - [ ] Win screen animation
-- [ ] `expo-haptics` on all interactions (select / place / invalid / win)
+- [x] `expo-haptics` on all interactions (select / place / invalid / win)
 - [ ] Sound FX via `expo-av` (piece click, slide, win fanfare)
-- [ ] Active dragon pulsing indicator (colorblind-safe)
+- [x] Active dragon pulsing indicator (colorblind-safe)
 - [ ] Dark/light theme via NativeWind
 
 **Exit criteria:** Playtesting feels polished and responsive.
 
 ---
 
-## Phase 3: AI Engine
-**Goal:** Solo play against a bot at three difficulty levels.
+## Phase 3: Gameplay Logic ← active
+**Goal:** Full turn loop, move execution, and win/deadlock handling wired to the UI.
 
 - [ ] Minimax algorithm with alpha-beta pruning
 - [ ] Evaluation heuristic: advancement score + mobility

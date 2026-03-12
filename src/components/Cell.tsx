@@ -1,17 +1,6 @@
 import React, { memo } from 'react';
-import { Pressable } from 'react-native';
-import { KamisadoColor } from '../constants/gameConstants';
-
-const COLOR_HEX: Readonly<Record<KamisadoColor, string>> = {
-  [KamisadoColor.Orange]: '#FF8C00',
-  [KamisadoColor.Blue]:   '#1E90FF',
-  [KamisadoColor.Purple]: '#9B30FF',
-  [KamisadoColor.Pink]:   '#FF69B4',
-  [KamisadoColor.Yellow]: '#FFD700',
-  [KamisadoColor.Red]:    '#DC143C',
-  [KamisadoColor.Green]:  '#228B22',
-  [KamisadoColor.Brown]:  '#8B4513',
-} as const;
+import { Pressable, StyleSheet, View } from 'react-native';
+import { KamisadoColor, COLOR_HEX } from '../constants/gameConstants';
 
 interface CellProps {
   color: KamisadoColor;
@@ -25,21 +14,35 @@ const Cell = memo(function Cell({ color, size, selected, onPress, children }: Ce
   return (
     <Pressable
       onPress={onPress}
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: COLOR_HEX[color],
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: selected ? 3 : 0,
-        borderColor: selected ? '#FFFFFF' : 'transparent',
-        boxSizing: 'border-box',
-      }}
+      style={[styles.cell, { width: size, height: size, backgroundColor: COLOR_HEX[color] }]}
     >
       {children}
+      {selected && (
+        <View pointerEvents="none" style={styles.selectedOverlay} />
+      )}
     </Pressable>
   );
 });
 
+const styles = StyleSheet.create({
+  cell: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+});
+
 export default Cell;
-export { COLOR_HEX };

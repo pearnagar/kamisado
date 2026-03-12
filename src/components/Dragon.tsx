@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,8 +8,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { KamisadoColor, Player, COLOR_KANJI } from '../constants/gameConstants';
-import { COLOR_HEX } from './Cell';
+import { KamisadoColor, Player, COLOR_KANJI, COLOR_HEX } from '../constants/gameConstants';
 
 interface DragonProps {
   color: KamisadoColor;
@@ -53,47 +52,43 @@ export default function Dragon({ color, player, cellSize, selected, onPress }: D
     <Animated.View style={animatedStyle}>
       <Pressable
         onPress={handlePress}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: 999,
-          backgroundColor: stoneColor,
-          justifyContent: 'center',
-          alignItems: 'center',
-          elevation: 3,
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.3,
-          shadowRadius: 3,
-        }}
+        style={[styles.stone, { width: size, height: size, backgroundColor: stoneColor }]}
       >
         {/* Camber bevel — simulates curved stone surface catching light */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            borderRadius: 999,
-            borderWidth: 3,
-            borderTopColor: 'rgba(255,255,255,0.4)',
-            borderLeftColor: 'rgba(255,255,255,0.15)',
-            borderBottomColor: 'rgba(0,0,0,0.4)',
-            borderRightColor: 'rgba(0,0,0,0.15)',
-          }}
-        />
-        <Text
-          style={{
-            color: kanjiColor,
-            fontSize: size * 0.6,
-            fontWeight: '400',
-          }}
-        >
+        <View pointerEvents="none" style={styles.bevel} />
+        <Text style={[styles.kanji, { color: kanjiColor, fontSize: size * 0.6 }]}>
           {COLOR_KANJI[color]}
         </Text>
       </Pressable>
     </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  stone: {
+    borderRadius: 999,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  bevel: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 999,
+    borderWidth: 3,
+    borderTopColor: 'rgba(255,255,255,0.4)',
+    borderLeftColor: 'rgba(255,255,255,0.15)',
+    borderBottomColor: 'rgba(0,0,0,0.4)',
+    borderRightColor: 'rgba(0,0,0,0.15)',
+  },
+  kanji: {
+    fontWeight: '400',
+  },
+});

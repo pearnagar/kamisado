@@ -5,7 +5,7 @@
  * All updates use immutable spread patterns; the input state is never mutated.
  */
 
-import { Player, BOARD_COLORS, type KamisadoColor } from '../constants/gameConstants';
+import { Player, BOARD_COLORS, BOARD_SIZE, type KamisadoColor } from '../constants/gameConstants';
 import type { GameState } from './gameState';
 import type { BoardPosition } from './moveValidator';
 import { isDeadlocked } from './moveValidator';
@@ -17,9 +17,9 @@ import { isDeadlocked } from './moveValidator';
 const opponent = (player: Player): Player =>
   player === Player.Black ? Player.White : Player.Black;
 
-/** Black wins by reaching row 7; White wins by reaching row 0. */
+/** Black wins by reaching row BOARD_SIZE-1; White wins by reaching row 0. */
 const isWinningMove = (player: Player, toRow: number): boolean =>
-  (player === Player.Black && toRow === 7) ||
+  (player === Player.Black && toRow === BOARD_SIZE - 1) ||
   (player === Player.White && toRow === 0);
 
 /**
@@ -32,8 +32,8 @@ const findPiecePosition = (
   color: KamisadoColor,
 ): BoardPosition | null => {
   const { board } = gameState;
-  for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
+  for (let row = 0; row < BOARD_SIZE; row++) {
+    for (let col = 0; col < BOARD_SIZE; col++) {
       const piece = board[row][col];
       if (piece !== null && piece.player === player && piece.color === color) {
         return { row, col };

@@ -39,6 +39,18 @@ export const COLOR_KANJI: Readonly<Record<KamisadoColor, string>> = {
   [KamisadoColor.Brown]:  '龜', // Tortoise
 } as const;
 
+/** Hex color for rendering each dragon color in the UI. */
+export const COLOR_HEX: Readonly<Record<KamisadoColor, string>> = {
+  [KamisadoColor.Orange]: '#FF8C00',
+  [KamisadoColor.Blue]:   '#1E90FF',
+  [KamisadoColor.Purple]: '#9B30FF',
+  [KamisadoColor.Pink]:   '#FF69B4',
+  [KamisadoColor.Yellow]: '#FFD700',
+  [KamisadoColor.Red]:    '#DC143C',
+  [KamisadoColor.Green]:  '#228B22',
+  [KamisadoColor.Brown]:  '#8B4513',
+} as const;
+
 // ---------------------------------------------------------------------------
 // Players
 // ---------------------------------------------------------------------------
@@ -53,6 +65,8 @@ export enum Player {
 // ---------------------------------------------------------------------------
 // Board
 // ---------------------------------------------------------------------------
+
+export const BOARD_SIZE = 8;
 
 const O  = KamisadoColor.Orange;
 const B  = KamisadoColor.Blue;
@@ -88,13 +102,11 @@ export const BOARD_COLORS: Readonly<KamisadoColor[][]> = [
 export interface Piece {
   readonly color:  KamisadoColor;
   readonly player: Player;
-  readonly kanji:  string;
 }
 
 const makePiece = (color: KamisadoColor, player: Player): Piece => ({
   color,
   player,
-  kanji: COLOR_KANJI[color],
 });
 
 // ---------------------------------------------------------------------------
@@ -117,11 +129,11 @@ export interface PositionedPiece {
 export const INITIAL_PIECES_POSITION: readonly PositionedPiece[] = (() => {
   const pieces: PositionedPiece[] = [];
 
-  for (let col = 0; col < 8; col++) {
+  for (let col = 0; col < BOARD_SIZE; col++) {
     // Black: home row 0, piece color matches cell color
     pieces.push({ piece: makePiece(BOARD_COLORS[0][col], Player.Black), row: 0, col });
-    // White: home row 7, piece color matches cell color
-    pieces.push({ piece: makePiece(BOARD_COLORS[7][col], Player.White), row: 7, col });
+    // White: home row BOARD_SIZE-1, piece color matches cell color
+    pieces.push({ piece: makePiece(BOARD_COLORS[BOARD_SIZE - 1][col], Player.White), row: BOARD_SIZE - 1, col });
   }
 
   return pieces;

@@ -1,15 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { BOARD_COLORS, KamisadoColor } from '../constants/gameConstants';
+import { BOARD_COLORS, BOARD_SIZE, KamisadoColor } from '../constants/gameConstants';
 import { GameState, createInitialGameState } from '../engine/gameState';
 import { getLegalMoves, getAvailablePieces } from '../engine/moveValidator';
 import Cell from './Cell';
 import Dragon from './Dragon';
 
-const BOARD_SIZE = 8;
 const CELL_SIZE = 44;
 const boardWidth = BOARD_SIZE * CELL_SIZE;
+const FLAT_BOARD_COLORS: readonly KamisadoColor[] = BOARD_COLORS.flat() as KamisadoColor[];
 
 function LegalMoveDot({ visible }: { visible: boolean }): React.JSX.Element {
   const opacity = useSharedValue(0);
@@ -18,21 +18,12 @@ function LegalMoveDot({ visible }: { visible: boolean }): React.JSX.Element {
     opacity.value = withTiming(visible ? 1 : 0, { duration: 200 });
   }, [visible]);
 
-  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   return (
     <Animated.View
       pointerEvents="none"
-      style={[
-        {
-          position: 'absolute',
-          width: CELL_SIZE * 0.28,
-          height: CELL_SIZE * 0.28,
-          borderRadius: 999,
-          backgroundColor: 'rgba(255,255,255,0.75)',
-        },
-        style,
-      ]}
+      style={[styles.legalMoveDot, animatedStyle]}
     />
   );
 }
@@ -59,11 +50,9 @@ export default function Board(): React.JSX.Element {
     );
   };
 
-  const cells: KamisadoColor[] = BOARD_COLORS.flat() as KamisadoColor[];
-
   return (
-    <View style={{ width: boardWidth, height: boardWidth, flexDirection: 'row', flexWrap: 'wrap' }}>
-      {cells.map((color, index) => {
+    <View style={styles.board}>
+      {FLAT_BOARD_COLORS.map((color, index) => {
         const row = Math.floor(index / BOARD_SIZE);
         const col = index % BOARD_SIZE;
         const piece = gameState.board[row][col];
@@ -96,3 +85,19 @@ export default function Board(): React.JSX.Element {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  board: {
+    width: boardWidth,
+    height: boardWidth,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  legalMoveDot: {
+    position: 'absolute',
+    width: CELL_SIZE * 0.28,
+    height: CELL_SIZE * 0.28,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.75)',
+  },
+});

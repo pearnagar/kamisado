@@ -11,7 +11,7 @@
  * extremely rare; if detected, the game is a draw.
  */
 
-import { Player, type KamisadoColor } from '../constants/gameConstants';
+import { Player, BOARD_SIZE, type KamisadoColor } from '../constants/gameConstants';
 import type { BoardState, GameState } from './gameState';
 
 // ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ const DIRECTIONS: Record<Player, readonly [number, number][]> = {
 };
 
 const inBounds = (row: number, col: number): boolean =>
-  row >= 0 && row <= 7 && col >= 0 && col <= 7;
+  row >= 0 && row <= BOARD_SIZE - 1 && col >= 0 && col <= BOARD_SIZE - 1;
 
 // ---------------------------------------------------------------------------
 // 1. getLegalMoves
@@ -96,8 +96,8 @@ export const getAvailablePieces = (gameState: GameState): readonly BoardPosition
   const { board, turn, activeColor } = gameState;
   const available: BoardPosition[] = [];
 
-  for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
+  for (let row = 0; row < BOARD_SIZE; row++) {
+    for (let col = 0; col < BOARD_SIZE; col++) {
       const piece = board[row][col];
       if (piece === null || piece.player !== turn) continue;
 
