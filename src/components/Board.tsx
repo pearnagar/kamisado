@@ -2,12 +2,13 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { BOARD_COLORS, BOARD_SIZE, GameMode, GameStatus, KamisadoColor, Player } from '../constants/gameConstants';
+import { BOARD_COLORS, BOARD_SIZE, DEFAULT_CLOCK_SECONDS, GameMode, GameStatus, KamisadoColor, Player } from '../constants/gameConstants';
 import { GameState, createInitialGameState } from '../engine/gameState';
 import { getLegalMoves, getAvailablePieces } from '../engine/moveValidator';
 import { makeMove } from '../engine/moveLogic';
 import { findBestMove } from '../engine/aiEngine';
 import Cell from './Cell';
+import ChessClock from './ChessClock';
 import Dragon from './Dragon';
 import ModeSelector from './ModeSelector';
 import ScoreHeader from './ScoreHeader';
@@ -77,6 +78,9 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
   const [opponentMode, setOpponentMode]   = useState<OpponentMode>('PvE');
   const [scoringMode, setScoringMode]     = useState<GameMode>(GameMode.Single);
   const [difficulty, setDifficulty]       = useState<Difficulty>('Medium');
+  // Incremented on every explicit reset so ChessClock key changes even when
+  // roundNumber stays at 1 (e.g. restarting a finished Single game).
+  const [clockEpoch, setClockEpoch]       = useState(0);
 
   // Stable refs so async callbacks always read the latest values without
   // those values being in effect dependency arrays.
@@ -206,7 +210,26 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
     }
   }, []);
 
+  // -------------------------------------------------------------------------
+  // Timeout handlers — use functional setState to safely guard against the
+  // rare case where both clocks hit 0 in the same tick (keeps first win only).
+  // -------------------------------------------------------------------------
+  const handleWhiteTimeout = useCallback((): void => {
+    setGameState(prev => {
+      if (prev.status !== GameStatus.Active) return prev;
+      return { ...prev, status: GameStatus.WonPlayer2_Timeout };
+    });
+  }, []);
+
+  const handleBlackTimeout = useCallback((): void => {
+    setGameState(prev => {
+      if (prev.status !== GameStatus.Active) return prev;
+      return { ...prev, status: GameStatus.WonPlayer1_Timeout };
+    });
+  }, []);
+
   const handleReset = (): void => {
+    setClockEpoch(prev => prev + 1);
     setIsAiThinking(false);
     setGameState(newGame(scoringModeRef.current));
     setSelectedPiece(null);
@@ -261,6 +284,24 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
         matchScore={gameState.matchScore}
         roundNumber={gameState.roundNumber}
       />
+
+      {/* Chess clocks — one per player, keyed so they remount on reset/new round */}
+      <View style={styles.clockRow}>
+        <ChessClock
+          key={`w-${clockEpoch}-${gameState.roundNumber}`}
+          label="White"
+          isActive={gameState.turn === Player.White && !isGameOver}
+          initialSeconds={DEFAULT_CLOCK_SECONDS}
+          onTimeOut={handleWhiteTimeout}
+        />
+        <ChessClock
+          key={`b-${clockEpoch}-${gameState.roundNumber}`}
+          label="Black"
+          isActive={gameState.turn === Player.Black && !isGameOver}
+          initialSeconds={DEFAULT_CLOCK_SECONDS}
+          onTimeOut={handleBlackTimeout}
+        />
+      </View>
 
       {/* Board area */}
       <View style={styles.container}>
@@ -507,5 +548,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
     elevation: 20,
+  },
+  clockRow: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    width:          boardWidth,
   },
 });

@@ -56,11 +56,16 @@ export const COLOR_HEX: Readonly<Record<KamisadoColor, string>> = {
 // ---------------------------------------------------------------------------
 
 export enum GameStatus {
-  Active     = 'ACTIVE',
-  WonPlayer1 = 'WON_PLAYER1', // White wins
-  WonPlayer2 = 'WON_PLAYER2', // Black wins
-  Draw       = 'DRAW',
+  Active              = 'ACTIVE',
+  WonPlayer1          = 'WON_PLAYER1',         // White wins by reaching back rank
+  WonPlayer2          = 'WON_PLAYER2',         // Black wins by reaching back rank
+  Draw                = 'DRAW',
+  WonPlayer1_Timeout  = 'WON_PLAYER1_TIMEOUT', // White wins — Black's clock ran out
+  WonPlayer2_Timeout  = 'WON_PLAYER2_TIMEOUT', // Black wins — White's clock ran out
 }
+
+/** Each player's starting clock time in seconds (5 minutes). */
+export const DEFAULT_CLOCK_SECONDS = 300;
 
 // ---------------------------------------------------------------------------
 // Game Mode

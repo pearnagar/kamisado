@@ -12,23 +12,29 @@ interface WinOverlayProps {
 }
 
 const WINNER: Partial<Record<GameStatus, Player>> = {
-  [GameStatus.WonPlayer1]: Player.White,
-  [GameStatus.WonPlayer2]: Player.Black,
+  [GameStatus.WonPlayer1]:         Player.White,
+  [GameStatus.WonPlayer2]:         Player.Black,
+  [GameStatus.WonPlayer1_Timeout]: Player.White,
+  [GameStatus.WonPlayer2_Timeout]: Player.Black,
 };
 
+const isTimeoutStatus = (s: GameStatus): boolean =>
+  s === GameStatus.WonPlayer1_Timeout || s === GameStatus.WonPlayer2_Timeout;
+
 function buildTitle(status: GameStatus, gameMode: GameMode): string {
+  if (status === GameStatus.Draw) return "It's a Draw!";
   const winner = WINNER[status];
-  if (status === GameStatus.Draw)    return "It's a Draw!";
-  if (winner === undefined)          return '';
+  if (winner === undefined)       return '';
+  if (isTimeoutStatus(status))    return `${winner} Wins! (by Timeout)`;
   const suffix = gameMode === GameMode.Single ? 'Wins!' : 'wins the Match!';
   return `${winner} ${suffix}`;
 }
 
 function buildScore(status: GameStatus, gameMode: GameMode, matchScore: WinOverlayProps['matchScore']): string {
+  if (isTimeoutStatus(status))    return '';  // timeout ends match instantly — no partial score line
   if (gameMode === GameMode.Single) return '';
   if (status === GameStatus.Draw)   return '';
-  const unit = gameMode === GameMode.Marathon ? ' pts' : '';
-  return `${matchScore.p1}${unit} — ${matchScore.p2}${unit}`;
+  return `${matchScore.p1} — ${matchScore.p2}`;
 }
 
 export default function WinOverlay({ status, gameMode, matchScore, onReset }: WinOverlayProps): React.JSX.Element {
