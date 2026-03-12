@@ -42,6 +42,11 @@ export interface GameState {
   readonly isDeadlocked:     boolean;
   /** Position of the piece that was blocked. Set alongside isDeadlocked; null otherwise. */
   readonly deadlockedPiece:  { readonly row: number; readonly col: number } | null;
+  /**
+   * Compact hashes of the last N (board + turn) states after each real piece move.
+   * Used to detect M8 repetition loops — if the same position recurs the mover loses.
+   */
+  readonly moveHistory:      readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +76,7 @@ export const createInitialGameState = (): GameState => {
     status:           GameStatus.Active,
     isDeadlocked:     false,
     deadlockedPiece:  null,
+    moveHistory:      [],
   };
 };
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
@@ -16,9 +16,17 @@ const boardWidth = BOARD_SIZE * CELL_SIZE;
 const FLAT_BOARD_COLORS: readonly KamisadoColor[] = BOARD_COLORS.flat() as KamisadoColor[];
 
 const AI_PLAYER = Player.Black;
-const AI_DEPTH  = 4;
 
-type GameMode = 'PvE' | 'PvP';
+type GameMode   = 'PvE' | 'PvP';
+type Difficulty = 'Easy' | 'Medium' | 'Hard';
+
+const DIFFICULTY_DEPTH: Record<Difficulty, number> = {
+  Easy:   2,
+  Medium: 4,
+  Hard:   6,
+};
+
+const DIFFICULTIES: Difficulty[] = ['Easy', 'Medium', 'Hard'];
 
 function LegalMoveDot({ visible }: { visible: boolean }): React.JSX.Element {
   const opacity = useSharedValue(0);
@@ -37,9 +45,15 @@ function LegalMoveDot({ visible }: { visible: boolean }): React.JSX.Element {
   );
 }
 
-interface AnimatingMove {
-  from: { row: number; col: number };
-  to:   { row: number; col: number };
+/**
+ * A pending move holds the pre-computed next GameState so that the board
+ * update is deferred until the slide animation finishes. This eliminates the
+ * one-frame ghost that occurred when makeMove() ran before the Dragon mounted.
+ */
+interface PendingMove {
+  from:      { row: number; col: number };
+  to:        { row: number; col: number };
+  nextState: GameState;
 }
 
 interface BoardProps {
@@ -49,65 +63,71 @@ interface BoardProps {
 export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
   const [gameState, setGameState]         = useState<GameState>(createInitialGameState);
   const [selectedPiece, setSelectedPiece] = useState<{ row: number; col: number } | null>(null);
-  const [animatingMove, setAnimatingMove] = useState<AnimatingMove | null>(null);
+  const [pendingMove, setPendingMove]     = useState<PendingMove | null>(null);
   const [isAiThinking, setIsAiThinking]   = useState(false);
   const [gameMode, setGameMode]           = useState<GameMode>('PvE');
+  const [difficulty, setDifficulty]       = useState<Difficulty>('Medium');
 
-  // Stable ref so the AI timeout always reads the latest state without
-  // `gameState` itself being in the effect's dependency array.
-  const gameStateRef = useRef(gameState);
-  gameStateRef.current = gameState;
+  // Stable refs so async callbacks always read the latest values without
+  // those values being in effect dependency arrays.
+  const gameStateRef   = useRef(gameState);
+  const difficultyRef  = useRef(difficulty);
+  const pendingMoveRef = useRef(pendingMove);
+  gameStateRef.current   = gameState;
+  difficultyRef.current  = difficulty;
+  pendingMoveRef.current = pendingMove;
 
   const isGameOver = gameState.status !== GameStatus.Active;
 
   // -------------------------------------------------------------------------
-  // AI: fires when the turn belongs to the AI, mode is PvE, and no deadlock
-  //     animation is in progress.
+  // AI: fires when the turn belongs to the AI, mode is PvE, and no animation
+  //     is in progress.
   //
-  // Dependency on `gameState.isDeadlocked` is intentional: when a move causes
-  // the opponent to be deadlocked and the turn stays with (or returns to) the
-  // AI, `gameState.turn` alone doesn't change — adding `isDeadlocked` ensures
-  // the effect re-evaluates once the shake animation clears the flag.
+  // `gameState.isDeadlocked` in deps: when a move deadlocks the opponent and
+  // the turn stays with the AI, `turn` alone doesn't change — tracking
+  // `isDeadlocked` ensures the effect re-fires once the shake clears the flag.
   // -------------------------------------------------------------------------
   useEffect(() => {
-    // PvP mode: humans control both sides
     if (gameMode !== 'PvE') return;
-
-    // Not AI's turn or game is over
     if (gameState.status !== GameStatus.Active || gameState.turn !== AI_PLAYER) return;
-
-    // Deadlock shake is still playing — wait for the flag to clear
     if (gameState.isDeadlocked) return;
+    if (pendingMove !== null) return; // wait for slide animation to finish
 
-    setIsAiThinking(true);
+    let frameId: ReturnType<typeof requestAnimationFrame>;
 
-    const t = setTimeout(() => {
+    // 600 ms after the slide animation settles, show the thinking indicator,
+    // then yield one frame so React flushes that render before JS blocks on minimax.
+    const timer = setTimeout(() => {
       const state = gameStateRef.current;
+      const depth = DIFFICULTY_DEPTH[difficultyRef.current];
 
-      // Re-validate: state may have changed while the timer was pending
+      // Re-validate — state or mode may have changed while the timer was pending
       if (
         gameMode !== 'PvE' ||
         state.status !== GameStatus.Active ||
         state.turn !== AI_PLAYER ||
-        state.isDeadlocked
-      ) {
+        state.isDeadlocked ||
+        pendingMoveRef.current !== null
+      ) return;
+
+      setIsAiThinking(true);
+      frameId = requestAnimationFrame(() => {
+        const currentState = gameStateRef.current;
+        const best = findBestMove(currentState, depth, AI_PLAYER);
+        if (best !== null) {
+          const nextState = makeMove(currentState, best.from, best.to);
+          setPendingMove({ from: best.from, to: best.to, nextState });
+        }
         setIsAiThinking(false);
-        return;
-      }
+      });
+    }, 600);
 
-      const best = findBestMove(state, AI_DEPTH, AI_PLAYER);
-      if (best !== null) {
-        const from = best.from;
-        const to   = best.to;
-        setAnimatingMove({ from, to });
-        setGameState(makeMove(state, from, to));
-      }
-      setIsAiThinking(false);
-    }, 500);
-
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(timer);
+      cancelAnimationFrame(frameId);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState.turn, gameState.status, gameState.isDeadlocked, gameMode]);
+  }, [gameState.turn, gameState.status, gameState.isDeadlocked, gameMode, pendingMove]);
 
   // -------------------------------------------------------------------------
   // Deadlock side-effects: haptics, notify parent, clear flag after 2 s
@@ -144,40 +164,70 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
   }, [selectedPiece, gameState.board]);
 
   // -------------------------------------------------------------------------
-  // Human input handlers — blocked while AI is thinking
+  // Human input handlers — blocked while AI is thinking or animating
   // -------------------------------------------------------------------------
-  const handleDragonPress = (row: number, col: number): void => {
-    if (isGameOver || isAiThinking || !availableSet.has(row * BOARD_SIZE + col)) return;
+  const handleDragonPress = useCallback((row: number, col: number): void => {
+    if (isGameOver || isAiThinking || pendingMove !== null) return;
+    if (!availableSet.has(row * BOARD_SIZE + col)) return;
     setSelectedPiece(prev =>
       prev?.row === row && prev?.col === col ? null : { row, col },
     );
-  };
+  }, [isGameOver, isAiThinking, pendingMove, availableSet]);
 
-  const handleCellPress = (row: number, col: number): void => {
-    if (isGameOver || isAiThinking || !selectedPiece || !legalMoveIndices.has(row * BOARD_SIZE + col)) return;
-    const from = selectedPiece;
-    const to   = { row, col };
-    setAnimatingMove({ from, to });
-    setGameState(prev => makeMove(prev, from, to));
+  const handleCellPress = useCallback((row: number, col: number): void => {
+    if (isGameOver || isAiThinking || pendingMove !== null) return;
+    if (!selectedPiece || !legalMoveIndices.has(row * BOARD_SIZE + col)) return;
+    const from      = selectedPiece;
+    const to        = { row, col };
+    const nextState = makeMove(gameStateRef.current, from, to);
+    setPendingMove({ from, to, nextState });
     setSelectedPiece(null);
-  };
+  }, [isGameOver, isAiThinking, pendingMove, selectedPiece, legalMoveIndices]);
+
+  // Stable ref — zero deps keeps Dragon's memo comparator from seeing a new
+  // function reference every render. pendingMoveRef gives access to latest state.
+  const handleAnimationComplete = useCallback((): void => {
+    const pm = pendingMoveRef.current;
+    if (pm) {
+      setGameState(pm.nextState);
+      setPendingMove(null);
+    }
+  }, []);
 
   const handleReset = (): void => {
     setIsAiThinking(false);
     setGameState(resetGame());
     setSelectedPiece(null);
-    setAnimatingMove(null);
+    setPendingMove(null);
   };
 
   const handleToggleMode = (): void => {
     Haptics.selectionAsync();
-    const next: GameMode = gameMode === 'PvE' ? 'PvP' : 'PvE';
-    setGameMode(next);
+    setGameMode(prev => (prev === 'PvE' ? 'PvP' : 'PvE'));
     setIsAiThinking(false);
     setGameState(resetGame());
     setSelectedPiece(null);
-    setAnimatingMove(null);
+    setPendingMove(null);
   };
+
+  const handleSetDifficulty = (next: Difficulty): void => {
+    if (next === difficulty) return;
+    Haptics.selectionAsync();
+    setDifficulty(next);
+    setIsAiThinking(false);
+    setGameState(resetGame());
+    setSelectedPiece(null);
+    setPendingMove(null);
+  };
+
+  // -------------------------------------------------------------------------
+  // Overlay Dragon: lifted out of its Cell so it renders above all sibling
+  // cells regardless of paint order. Board state is deferred until the
+  // animation completes, so the Cell below shows empty while it flies.
+  // -------------------------------------------------------------------------
+  const overlayPiece = pendingMove !== null
+    ? gameState.board[pendingMove.from.row][pendingMove.from.col]
+    : null;
 
   // -------------------------------------------------------------------------
   // Render
@@ -194,14 +244,9 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
             const isSelected  = selectedPiece?.row === row && selectedPiece?.col === col;
             const isLegalMove = legalMoveIndices.has(index);
 
-            const isAnimatingTarget =
-              animatingMove?.to.row === row && animatingMove?.to.col === col;
-            const animateFrom = isAnimatingTarget && animatingMove
-              ? {
-                  dx: (animatingMove.from.col - col) * CELL_SIZE,
-                  dy: (animatingMove.from.row - row) * CELL_SIZE,
-                }
-              : undefined;
+            // Hide the in-cell Dragon while it's animating in the overlay.
+            const isAnimatingSource =
+              pendingMove?.from.row === row && pendingMove?.from.col === col;
 
             const shakeNow =
               gameState.isDeadlocked &&
@@ -214,17 +259,20 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
                 color={color}
                 size={CELL_SIZE}
                 selected={isSelected}
-                onPress={piece === null && !isGameOver && !isAiThinking ? () => handleCellPress(row, col) : undefined}
+                onPress={
+                  piece === null && !isGameOver && !isAiThinking && pendingMove === null
+                    ? () => handleCellPress(row, col)
+                    : undefined
+                }
               >
                 <LegalMoveDot visible={isLegalMove && !isAiThinking} />
-                {piece !== null && (
+                {piece !== null && !isAnimatingSource && (
                   <Dragon
+                    key={`${piece.color}-${piece.player}`}
                     color={piece.color}
                     player={piece.player}
                     cellSize={CELL_SIZE}
                     selected={isSelected}
-                    animateFrom={animateFrom}
-                    onAnimationComplete={() => setAnimatingMove(null)}
                     shakeNow={shakeNow}
                     onPress={() => handleDragonPress(row, col)}
                   />
@@ -233,6 +281,36 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
             );
           })}
         </View>
+
+        {/* Overlay: animating Dragon rendered above all cells.
+            Positioned at the source cell; Dragon translates to the destination.
+            pointerEvents="none" keeps it non-interactive. */}
+        {pendingMove !== null && overlayPiece !== null && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.dragonOverlay,
+              {
+                left: pendingMove.from.col * CELL_SIZE,
+                top:  pendingMove.from.row * CELL_SIZE,
+              },
+            ]}
+          >
+            <Dragon
+              key="overlay-dragon"
+              color={overlayPiece.color}
+              player={overlayPiece.player}
+              cellSize={CELL_SIZE}
+              selected={false}
+              animateTo={{
+                dx: (pendingMove.to.col - pendingMove.from.col) * CELL_SIZE,
+                dy: (pendingMove.to.row - pendingMove.from.row) * CELL_SIZE,
+              }}
+              onAnimationComplete={handleAnimationComplete}
+              shakeNow={false}
+            />
+          </View>
+        )}
 
         {/* Thinking indicator — floats above the board, non-interactive */}
         {isAiThinking && (
@@ -245,15 +323,44 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
         <WinOverlay status={gameState.status} onReset={handleReset} />
       </View>
 
-      {/* Mode toggle — sits below the board */}
-      <Pressable
-        onPress={handleToggleMode}
-        style={({ pressed }) => [styles.modeButton, pressed && styles.modeButtonPressed]}
-      >
-        <Text style={styles.modeButtonText}>
-          {gameMode === 'PvE' ? 'Mode: vs Bot' : 'Mode: vs Human'}
-        </Text>
-      </Pressable>
+      {/* Controls row: mode toggle + difficulty picker */}
+      <View style={styles.controlsRow}>
+        {/* Mode toggle */}
+        <Pressable
+          onPress={handleToggleMode}
+          style={({ pressed }) => [styles.modeButton, pressed && styles.controlPressed]}
+        >
+          <Text style={styles.modeButtonText}>
+            {gameMode === 'PvE' ? 'vs Bot' : 'vs Human'}
+          </Text>
+        </Pressable>
+
+        {/* Difficulty segmented control — only meaningful in PvE */}
+        <View style={[styles.difficultyRow, gameMode === 'PvP' && styles.difficultyRowDisabled]}>
+          {DIFFICULTIES.map((level, i) => {
+            const isActive = difficulty === level;
+            const isFirst  = i === 0;
+            const isLast   = i === DIFFICULTIES.length - 1;
+            return (
+              <Pressable
+                key={level}
+                onPress={() => handleSetDifficulty(level)}
+                disabled={gameMode === 'PvP'}
+                style={[
+                  styles.diffSegment,
+                  isFirst  && styles.diffSegmentFirst,
+                  isLast   && styles.diffSegmentLast,
+                  isActive && styles.diffSegmentActive,
+                ]}
+              >
+                <Text style={[styles.diffSegmentText, isActive && styles.diffSegmentTextActive]}>
+                  {level}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
     </View>
   );
 }
@@ -261,7 +368,7 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
 const styles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
   },
   container: {
     width: boardWidth,
@@ -297,21 +404,72 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.2,
   },
+  // ---- controls ----
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   modeButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 28,
+    paddingVertical: 9,
+    paddingHorizontal: 18,
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
   },
-  modeButtonPressed: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  controlPressed: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   modeButtonText: {
     color: 'rgba(255,255,255,0.75)',
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.3,
+  },
+  // ---- difficulty segmented control ----
+  difficultyRow: {
+    flexDirection: 'row',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    overflow: 'hidden',
+  },
+  difficultyRowDisabled: {
+    opacity: 0.35,
+  },
+  diffSegment: {
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  diffSegmentFirst: {
+    borderTopLeftRadius: 19,
+    borderBottomLeftRadius: 19,
+  },
+  diffSegmentLast: {
+    borderTopRightRadius: 19,
+    borderBottomRightRadius: 19,
+  },
+  diffSegmentActive: {
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  diffSegmentText: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  diffSegmentTextActive: {
+    color: '#0F172A',
+  },
+  dragonOverlay: {
+    position: 'absolute',
+    width:  CELL_SIZE,
+    height: CELL_SIZE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    elevation: 20,
   },
 });

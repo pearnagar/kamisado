@@ -37,6 +37,12 @@ export interface AiMove {
 const ADVANCE_WEIGHT  = 10;
 /** Points awarded per legal move available to a piece (mobility). */
 const MOBILITY_WEIGHT = 1;
+/**
+ * Bonus applied when one player has just been forfeited (M6).
+ * `state.isDeadlocked === true` signals this — the player recorded in
+ * `state.turn` is the one who gets the extra move (their opponent was forfeited).
+ */
+const FORFEIT_BONUS   = 20;
 
 // ---------------------------------------------------------------------------
 // 1. evaluateBoard
@@ -68,8 +74,14 @@ export const evaluateBoard = (state: GameState, aiPlayer: Player): number => {
     return 0;
   }
 
-  // --- Heuristic: sum over all pieces on the board ---
+  // --- Forfeit bonus (M6): one player lost their turn ---
+  // state.turn is the player who gets to move again after the forfeit.
   let score = 0;
+  if (state.isDeadlocked) {
+    score += state.turn === aiPlayer ? FORFEIT_BONUS : -FORFEIT_BONUS;
+  }
+
+  // --- Heuristic: sum over all pieces on the board ---
 
   for (let row = 0; row < BOARD_SIZE; row++) {
     for (let col = 0; col < BOARD_SIZE; col++) {
@@ -187,12 +199,18 @@ export const findBestMove = (
   aiPlayer: Player,
 ): AiMove | null => {
   const available = getAvailablePieces(state);
-
+  
   let bestScore = -Infinity;
-  let bestMove:  AiMove | null = null;
+  let candidates: AiMove[] = [];
 
   for (const from of available) {
-    const moves = getLegalMoves(state.board, from.row, from.col);
+    // יצירת עותק של המהלכים וערבוב שלו
+    const rawMoves = getLegalMoves(state.board, from.row, from.col);
+    const moves = [...rawMoves].sort(() => Math.random() - 0.5);
+
+    if (__DEV__) {
+      console.log(`[AI Debug] Piece at [${from.row},${from.col}] has ${moves.length} legal moves.`);
+    }
 
     for (const to of moves) {
       const next  = makeMove(state, from, to);
@@ -200,10 +218,22 @@ export const findBestMove = (
 
       if (score > bestScore) {
         bestScore = score;
-        bestMove  = { from, to };
+        candidates = [{ from, to }];
+      } else if (score === bestScore) {
+        candidates.push({ from, to });
       }
     }
   }
 
-  return bestMove;
+  if (candidates.length === 0) return null;
+  
+  // בחירה רנדומלית מתוך המהלכים הטובים ביותר
+  const randomIndex = Math.floor(Math.random() * candidates.length);
+  const selectedMove = candidates[randomIndex];
+
+  if (__DEV__) {
+    console.log(`[AI Debug] Best score: ${bestScore}. Chose move to [${selectedMove.to.row},${selectedMove.to.col}] from ${candidates.length} options.`);
+  }
+
+  return selectedMove;
 };

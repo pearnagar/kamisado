@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { memo, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   runOnJS,
@@ -16,20 +16,20 @@ interface DragonProps {
   player: Player;
   cellSize: number;
   selected?: boolean;
-  /** If set, dragon slides in from this pixel offset (new-cell-relative coords). */
-  animateFrom?: { dx: number; dy: number };
+  /** If set, dragon slides OUT to this pixel offset (source-cell-relative coords). */
+  animateTo?: { dx: number; dy: number };
   onAnimationComplete?: () => void;
   /** When toggled to true, plays a horizontal shake to signal the piece is blocked. */
   shakeNow?: boolean;
   onPress?: () => void;
 }
 
-export default function Dragon({
+const Dragon = memo(function Dragon({
   color,
   player,
   cellSize,
   selected,
-  animateFrom,
+  animateTo,
   onAnimationComplete,
   shakeNow,
   onPress,
@@ -69,17 +69,16 @@ export default function Dragon({
     );
   }, [shakeNow]);
 
-  // Slide-in from previous cell position
+  // Slide out toward destination cell — board state updates only after this finishes.
+  // The Dragon starts at (0,0) (its natural cell position) so there is no ghost frame.
   useEffect(() => {
-    if (!animateFrom) return;
-    translateX.value = animateFrom.dx;
-    translateY.value = animateFrom.dy;
-    translateX.value = withTiming(0, { duration: 280 });
-    translateY.value = withTiming(0, { duration: 280 }, (finished) => {
+    if (!animateTo) return;
+    translateX.value = withTiming(animateTo.dx, { duration: 280 });
+    translateY.value = withTiming(animateTo.dy, { duration: 280 }, (finished) => {
       'worklet';
       if (finished && onAnimationComplete) runOnJS(onAnimationComplete)();
     });
-  }, [animateFrom]);
+  }, [animateTo]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -95,7 +94,9 @@ export default function Dragon({
   };
 
   return (
-    <Animated.View style={animatedStyle}>
+    // renderToHardwareTextureAndroid: composites into a GPU texture before
+    // drawing, eliminating redraws during transform-only animations on Android.
+    <Animated.View style={animatedStyle} renderToHardwareTextureAndroid>
       <Pressable
         onPress={handlePress}
         style={[styles.stone, { width: size, height: size, backgroundColor: stoneColor }]}
@@ -108,7 +109,19 @@ export default function Dragon({
       </Pressable>
     </Animated.View>
   );
-}
+}, (prev, next) =>
+  prev.color              === next.color              &&
+  prev.player             === next.player             &&
+  prev.cellSize           === next.cellSize           &&
+  prev.selected           === next.selected           &&
+  prev.shakeNow           === next.shakeNow           &&
+  prev.onPress            === next.onPress            &&
+  prev.onAnimationComplete === next.onAnimationComplete &&
+  prev.animateTo?.dx      === next.animateTo?.dx      &&
+  prev.animateTo?.dy      === next.animateTo?.dy,
+);
+
+export default Dragon;
 
 const styles = StyleSheet.create({
   stone: {
