@@ -93,7 +93,8 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
   pendingMoveRef.current = pendingMove;
   scoringModeRef.current = scoringMode;
 
-  const isGameOver = gameState.status !== GameStatus.Active;
+  const isGameOver     = gameState.status !== GameStatus.Active;
+  const hasGameStarted = gameState.moveHistory.length > 0;
 
   // -------------------------------------------------------------------------
   // AI: fires when the turn belongs to the AI, mode is PvE, and no animation
@@ -240,6 +241,7 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
     Haptics.selectionAsync();
     setOpponentMode(prev => (prev === 'PvE' ? 'PvP' : 'PvE'));
     setIsAiThinking(false);
+    setClockEpoch(prev => prev + 1);
     setGameState(newGame(scoringModeRef.current));
     setSelectedPiece(null);
     setPendingMove(null);
@@ -250,6 +252,7 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
     Haptics.selectionAsync();
     setDifficulty(next);
     setIsAiThinking(false);
+    setClockEpoch(prev => prev + 1);
     setGameState(newGame(scoringModeRef.current));
     setSelectedPiece(null);
     setPendingMove(null);
@@ -259,6 +262,7 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
     if (mode === scoringMode) return;
     setScoringMode(mode);
     setIsAiThinking(false);
+    setClockEpoch(prev => prev + 1);
     setGameState(newGame(mode));
     setSelectedPiece(null);
     setPendingMove(null);
@@ -290,14 +294,14 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
         <ChessClock
           key={`w-${clockEpoch}-${gameState.roundNumber}`}
           label="White"
-          isActive={gameState.turn === Player.White && !isGameOver}
+          isActive={hasGameStarted && gameState.turn === Player.White && !isGameOver}
           initialSeconds={DEFAULT_CLOCK_SECONDS}
           onTimeOut={handleWhiteTimeout}
         />
         <ChessClock
           key={`b-${clockEpoch}-${gameState.roundNumber}`}
           label="Black"
-          isActive={gameState.turn === Player.Black && !isGameOver}
+          isActive={hasGameStarted && gameState.turn === Player.Black && !isGameOver}
           initialSeconds={DEFAULT_CLOCK_SECONDS}
           onTimeOut={handleBlackTimeout}
         />
