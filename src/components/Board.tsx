@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { useNavigation } from '@react-navigation/native';
 import { BOARD_COLORS, BOARD_SIZE, DEFAULT_CLOCK_SECONDS, GameMode, GameStatus, KamisadoColor, Player } from '../constants/gameConstants';
 import { GameState, createInitialGameState } from '../engine/gameState';
 import { getLegalMoves, getAvailablePieces } from '../engine/moveValidator';
@@ -10,7 +11,6 @@ import { findBestMove } from '../engine/aiEngine';
 import Cell from './Cell';
 import ChessClock from './ChessClock';
 import Dragon from './Dragon';
-import ModeSelector from './ModeSelector';
 import ScoreHeader from './ScoreHeader';
 import WinOverlay from './WinOverlay';
 
@@ -29,8 +29,6 @@ const DIFFICULTY_DEPTH: Record<Difficulty, number> = {
   Medium: 4,
   Hard:   6,
 };
-
-const DIFFICULTIES: Difficulty[] = ['Easy', 'Medium', 'Hard'];
 
 /** Creates a fresh board with the chosen scoring mode baked in. */
 const newGame = (mode: GameMode): GameState => ({
@@ -59,39 +57,63 @@ function LegalMoveDot({ visible }: { visible: boolean }): React.JSX.Element {
  * A pending move holds the pre-computed next GameState so that the board
  * update is deferred until the slide animation finishes. This eliminates the
  * one-frame ghost that occurred when makeMove() ran before the Dragon mounted.
+ *
+ * isUndo: when true, handleAnimationComplete skips the history push and
+ * restores nextLastMove instead of recording the new position as lastMove.
  */
 interface PendingMove {
-  from:      { row: number; col: number };
-  to:        { row: number; col: number };
-  nextState: GameState;
+  from:          { row: number; col: number };
+  to:            { row: number; col: number };
+  nextState:     GameState;
+  isUndo?:       boolean;
+  nextLastMove?: { from: { row: number; col: number }; to: { row: number; col: number } } | null;
 }
 
 interface BoardProps {
   onDeadlock?: (message: string) => void;
+  gameMode:   'pvp' | 'pve';
+  difficulty: 'easy' | 'medium' | 'hard';
+  matchType:  'single' | 'match';
 }
 
-export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
-  const [gameState, setGameState]         = useState<GameState>(() => newGame(GameMode.Single));
+export default function Board({ onDeadlock, gameMode, difficulty, matchType }: BoardProps): React.JSX.Element {
+  const navigation = useNavigation<any>();
+
+  // Map props to internal types
+  const opponentMode: OpponentMode = gameMode === 'pvp' ? 'PvP' : 'PvE';
+  const internalDifficulty: Difficulty = (difficulty.charAt(0).toUpperCase() + difficulty.slice(1)) as Difficulty;
+  const scoringMode: GameMode = matchType === 'match' ? GameMode.Match : GameMode.Single;
+
+  interface HistoryEntry {
+    gameState: GameState;
+    lastMove:  { from: { row: number; col: number }; to: { row: number; col: number } } | null;
+    /** The move that was made to reach this state — needed to animate in reverse. */
+    move:      { from: { row: number; col: number }; to: { row: number; col: number } };
+  }
+
+  const [gameState, setGameState]         = useState<GameState>(() => newGame(scoringMode));
   const [selectedPiece, setSelectedPiece] = useState<{ row: number; col: number } | null>(null);
   const [pendingMove, setPendingMove]     = useState<PendingMove | null>(null);
   const [isAiThinking, setIsAiThinking]   = useState(false);
-  const [opponentMode, setOpponentMode]   = useState<OpponentMode>('PvE');
-  const [scoringMode, setScoringMode]     = useState<GameMode>(GameMode.Single);
-  const [difficulty, setDifficulty]       = useState<Difficulty>('Medium');
+  const [history, setHistory]             = useState<HistoryEntry[]>([]);
   // Incremented on every explicit reset so ChessClock key changes even when
   // roundNumber stays at 1 (e.g. restarting a finished Single game).
   const [clockEpoch, setClockEpoch]       = useState(0);
+  const [lastMove, setLastMove]           = useState<{ from: { row: number; col: number }; to: { row: number; col: number } } | null>(null);
 
   // Stable refs so async callbacks always read the latest values without
   // those values being in effect dependency arrays.
-  const gameStateRef    = useRef(gameState);
-  const difficultyRef   = useRef(difficulty);
-  const pendingMoveRef  = useRef(pendingMove);
-  const scoringModeRef  = useRef(scoringMode);
+  const gameStateRef        = useRef(gameState);
+  const difficultyRef       = useRef(internalDifficulty);
+  const pendingMoveRef      = useRef(pendingMove);
+  const lastMoveRef         = useRef(lastMove);
+  // Holds the second undo step for PvE so it can be chained inside
+  // handleAnimationComplete without a setTimeout.
+  const pendingUndoChainRef = useRef<HistoryEntry | null>(null);
   gameStateRef.current   = gameState;
-  difficultyRef.current  = difficulty;
+  difficultyRef.current  = internalDifficulty;
   pendingMoveRef.current = pendingMove;
-  scoringModeRef.current = scoringMode;
+  lastMoveRef.current    = lastMove;
 
   const isGameOver     = gameState.status !== GameStatus.Active;
   const hasGameStarted = gameState.moveHistory.length > 0;
@@ -127,8 +149,8 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
         pendingMoveRef.current !== null
       ) return;
 
-      setIsAiThinking(true);
       frameId = requestAnimationFrame(() => {
+        setIsAiThinking(true);
         const currentState = gameStateRef.current;
         const best = findBestMove(currentState, depth, AI_PLAYER);
         if (best !== null) {
@@ -180,6 +202,21 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
     return new Set(moves.map(m => m.row * BOARD_SIZE + m.col));
   }, [selectedPiece, gameState.board]);
 
+  const lastMoveIndices = useMemo(() => {
+    if (!lastMove) return new Set<number>();
+    return new Set([
+      lastMove.from.row * BOARD_SIZE + lastMove.from.col,
+      lastMove.to.row   * BOARD_SIZE + lastMove.to.col,
+    ]);
+  }, [lastMove]);
+
+  // Forced piece: only when exactly one piece can move (all turns after the first).
+  // On the opening move all 8 pieces are available — no ring needed then.
+  const forcedPieceIndex = useMemo(() => {
+    if (!hasGameStarted || isGameOver || availableSet.size !== 1) return -1;
+    return [...availableSet][0];
+  }, [hasGameStarted, isGameOver, availableSet]);
+
   // -------------------------------------------------------------------------
   // Human input handlers — blocked while AI is thinking or animating
   // -------------------------------------------------------------------------
@@ -205,9 +242,35 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
   // function reference every render. pendingMoveRef gives access to latest state.
   const handleAnimationComplete = useCallback((): void => {
     const pm = pendingMoveRef.current;
-    if (pm) {
-      setGameState(pm.nextState);
-      setPendingMove(null);
+    if (!pm) return;
+
+    if (!pm.isUndo) {
+      // Normal move: snapshot pre-move state (including the move coords) for undo.
+      setHistory(prev => [...prev, {
+        gameState: gameStateRef.current,
+        lastMove:  lastMoveRef.current,
+        move:      { from: pm.from, to: pm.to },
+      }]);
+      setLastMove({ from: pm.from, to: pm.to });
+    } else {
+      // Undo move: restore the lastMove highlight that existed before this move.
+      setLastMove(pm.nextLastMove !== undefined ? pm.nextLastMove : null);
+    }
+
+    setGameState(pm.nextState);
+    setPendingMove(null);
+
+    // Chain second undo step (PvE only) — runs synchronously so React batches it.
+    const chain = pendingUndoChainRef.current;
+    if (chain) {
+      pendingUndoChainRef.current = null;
+      setPendingMove({
+        from:          chain.move.to,
+        to:            chain.move.from,
+        nextState:     chain.gameState,
+        nextLastMove:  chain.lastMove,
+        isUndo:        true,
+      });
     }
   }, []);
 
@@ -229,43 +292,38 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
     });
   }, []);
 
+  // Animate a piece sliding back to where it came from.
+  // PvP: one step. PvE: bot's move reverses first, then the chain ref triggers
+  // the human's move reversal inside handleAnimationComplete.
+  const handleUndo = (): void => {
+    if (opponentMode === 'PvP') {
+      if (history.length < 1) return;
+      const entry = history[history.length - 1];
+      setHistory(prev => prev.slice(0, -1));
+      setSelectedPiece(null);
+      setPendingMove({ from: entry.move.to, to: entry.move.from, nextState: entry.gameState, nextLastMove: entry.lastMove, isUndo: true });
+      return;
+    }
+
+    // PvE: queue the human entry so handleAnimationComplete chains it after bot's.
+    if (history.length < 2) return;
+    const botEntry   = history[history.length - 1];
+    const humanEntry = history[history.length - 2];
+    setHistory(prev => prev.slice(0, -2));
+    setSelectedPiece(null);
+    pendingUndoChainRef.current = humanEntry;
+    setPendingMove({ from: botEntry.move.to, to: botEntry.move.from, nextState: botEntry.gameState, nextLastMove: botEntry.lastMove, isUndo: true });
+  };
+
   const handleReset = (): void => {
     setClockEpoch(prev => prev + 1);
     setIsAiThinking(false);
-    setGameState(newGame(scoringModeRef.current));
+    pendingUndoChainRef.current = null;
+    setGameState(newGame(scoringMode));
     setSelectedPiece(null);
     setPendingMove(null);
-  };
-
-  const handleToggleOpponent = (): void => {
-    Haptics.selectionAsync();
-    setOpponentMode(prev => (prev === 'PvE' ? 'PvP' : 'PvE'));
-    setIsAiThinking(false);
-    setClockEpoch(prev => prev + 1);
-    setGameState(newGame(scoringModeRef.current));
-    setSelectedPiece(null);
-    setPendingMove(null);
-  };
-
-  const handleSetDifficulty = (next: Difficulty): void => {
-    if (next === difficulty) return;
-    Haptics.selectionAsync();
-    setDifficulty(next);
-    setIsAiThinking(false);
-    setClockEpoch(prev => prev + 1);
-    setGameState(newGame(scoringModeRef.current));
-    setSelectedPiece(null);
-    setPendingMove(null);
-  };
-
-  const handleSetScoringMode = (mode: GameMode): void => {
-    if (mode === scoringMode) return;
-    setScoringMode(mode);
-    setIsAiThinking(false);
-    setClockEpoch(prev => prev + 1);
-    setGameState(newGame(mode));
-    setSelectedPiece(null);
-    setPendingMove(null);
+    setLastMove(null);
+    setHistory([]);
   };
 
   // -------------------------------------------------------------------------
@@ -314,8 +372,10 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
             const row   = Math.floor(index / BOARD_SIZE);
             const col   = index % BOARD_SIZE;
             const piece = gameState.board[row][col];
-            const isSelected  = selectedPiece?.row === row && selectedPiece?.col === col;
-            const isLegalMove = legalMoveIndices.has(index);
+            const isSelected    = selectedPiece?.row === row && selectedPiece?.col === col;
+            const isLegalMove   = legalMoveIndices.has(index);
+            const isLastMove    = lastMoveIndices.has(index);
+            const isForcedPiece = forcedPieceIndex === index;
 
             // Hide the in-cell Dragon while it's animating in the overlay.
             const isAnimatingSource =
@@ -338,17 +398,25 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
                     : undefined
                 }
               >
+                {isLastMove && (
+                  <View pointerEvents="none" style={styles.lastMoveOverlay} />
+                )}
                 <LegalMoveDot visible={isLegalMove && !isAiThinking} />
                 {piece !== null && !isAnimatingSource && (
-                  <Dragon
-                    key={`${piece.color}-${piece.player}`}
-                    color={piece.color}
-                    player={piece.player}
-                    cellSize={CELL_SIZE}
-                    selected={isSelected}
-                    shakeNow={shakeNow}
-                    onPress={() => handleDragonPress(row, col)}
-                  />
+                  <View style={isForcedPiece ? [
+                    styles.forcedPieceWrapper,
+                    { borderColor: piece.player === Player.White ? '#000000' : '#FFFFFF' },
+                  ] : undefined}>
+                    <Dragon
+                      key={`${piece.color}-${piece.player}`}
+                      color={piece.color}
+                      player={piece.player}
+                      cellSize={CELL_SIZE}
+                      selected={isSelected}
+                      shakeNow={shakeNow}
+                      onPress={() => handleDragonPress(row, col)}
+                    />
+                  </View>
                 )}
               </Cell>
             );
@@ -370,7 +438,7 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
             ]}
           >
             <Dragon
-              key="overlay-dragon"
+              key={`overlay-dragon-${pendingMove.from.row}-${pendingMove.from.col}`}
               color={overlayPiece.color}
               player={overlayPiece.player}
               cellSize={CELL_SIZE}
@@ -385,63 +453,45 @@ export default function Board({ onDeadlock }: BoardProps): React.JSX.Element {
           </View>
         )}
 
-        {/* Thinking indicator — floats above the board, non-interactive */}
-        {isAiThinking && (
-          <View style={styles.thinkingBanner} pointerEvents="none">
-            <ActivityIndicator size="small" color="rgba(255,255,255,0.9)" />
-            <Text style={styles.thinkingText}>Bot is thinking…</Text>
-          </View>
-        )}
-
         <WinOverlay
           status={gameState.status}
           gameMode={gameState.gameMode}
           matchScore={gameState.matchScore}
           onReset={handleReset}
+          onGoBack={() => navigation.goBack()}
         />
       </View>
 
-      {/* Controls row: opponent toggle + difficulty picker */}
-      <View style={styles.controlsRow}>
-        {/* Opponent toggle */}
-        <Pressable
-          onPress={handleToggleOpponent}
-          style={({ pressed }) => [styles.modeButton, pressed && styles.controlPressed]}
-        >
-          <Text style={styles.modeButtonText}>
-            {opponentMode === 'PvE' ? 'vs Bot' : 'vs Human'}
-          </Text>
-        </Pressable>
-
-        {/* Difficulty segmented control — only meaningful in PvE */}
-        <View style={[styles.difficultyRow, opponentMode === 'PvP' && styles.difficultyRowDisabled]}>
-          {DIFFICULTIES.map((level, i) => {
-            const isActive = difficulty === level;
-            const isFirst  = i === 0;
-            const isLast   = i === DIFFICULTIES.length - 1;
+      {/* Bottom controls — visible during active gameplay only */}
+      {!isGameOver && (
+        <View style={styles.bottomRow}>
+          {(() => {
+            const canUndo = pendingMove === null && !isAiThinking &&
+              history.length >= (opponentMode === 'PvE' ? 2 : 1);
             return (
               <Pressable
-                key={level}
-                onPress={() => handleSetDifficulty(level)}
-                disabled={opponentMode === 'PvP'}
-                style={[
-                  styles.diffSegment,
-                  isFirst  && styles.diffSegmentFirst,
-                  isLast   && styles.diffSegmentLast,
-                  isActive && styles.diffSegmentActive,
+                onPress={handleUndo}
+                disabled={!canUndo}
+                style={({ pressed }) => [
+                  styles.quitButton,
+                  pressed && canUndo && styles.quitButtonPressed,
+                  !canUndo && styles.quitButtonDisabled,
                 ]}
               >
-                <Text style={[styles.diffSegmentText, isActive && styles.diffSegmentTextActive]}>
-                  {level}
+                <Text style={[styles.quitButtonText, !canUndo && styles.quitButtonTextDisabled]}>
+                  Undo
                 </Text>
               </Pressable>
             );
-          })}
+          })()}
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={({ pressed }) => [styles.quitButton, pressed && styles.quitButtonPressed]}
+          >
+            <Text style={styles.quitButtonText}>Forfeit / Quit</Text>
+          </Pressable>
         </View>
-      </View>
-
-      {/* Scoring mode selector: Single | Match | Marathon */}
-      <ModeSelector value={scoringMode} onChange={handleSetScoringMode} />
+      )}
     </View>
   );
 }
@@ -469,81 +519,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.75)',
   },
-  thinkingBanner: {
-    position: 'absolute',
-    top: 8,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  thinkingText: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  // ---- controls ----
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  modeButton: {
-    paddingVertical: 9,
-    paddingHorizontal: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  controlPressed: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
-  },
-  modeButtonText: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  // ---- difficulty segmented control ----
-  difficultyRow: {
-    flexDirection: 'row',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    overflow: 'hidden',
-  },
-  difficultyRowDisabled: {
-    opacity: 0.35,
-  },
-  diffSegment: {
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  diffSegmentFirst: {
-    borderTopLeftRadius: 19,
-    borderBottomLeftRadius: 19,
-  },
-  diffSegmentLast: {
-    borderTopRightRadius: 19,
-    borderBottomRightRadius: 19,
-  },
-  diffSegmentActive: {
-    backgroundColor: 'rgba(255,255,255,0.85)',
-  },
-  diffSegmentText: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  diffSegmentTextActive: {
-    color: '#0F172A',
-  },
   dragonOverlay: {
     position: 'absolute',
     width:  CELL_SIZE,
@@ -557,5 +532,41 @@ const styles = StyleSheet.create({
     flexDirection:  'row',
     justifyContent: 'space-between',
     width:          boardWidth,
+  },
+  quitButton: {
+    paddingVertical:   8,
+    paddingHorizontal: 24,
+    borderRadius:      20,
+    borderWidth:       1,
+    borderColor:       'rgba(255,255,255,0.2)',
+  },
+  quitButtonPressed: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  quitButtonText: {
+    color:         'rgba(255,255,255,0.45)',
+    fontSize:      13,
+    fontWeight:    '500',
+    letterSpacing: 0.2,
+  },
+  lastMoveOverlay: {
+    position:        'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  forcedPieceWrapper: {
+    borderRadius: 999,
+    borderWidth:  3,
+    borderColor:  '#FFFFFF',
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    gap:           12,
+  },
+  quitButtonDisabled: {
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  quitButtonTextDisabled: {
+    color: 'rgba(255,255,255,0.2)',
   },
 });

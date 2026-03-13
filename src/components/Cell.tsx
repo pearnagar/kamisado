@@ -14,7 +14,8 @@ const Cell = memo(function Cell({ color, size, selected, onPress, children }: Ce
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.cell, { width: size, height: size, backgroundColor: COLOR_HEX[color] }]}
+      android_ripple={null}
+      style={() => [styles.cell, { width: size, height: size, backgroundColor: COLOR_HEX[color] }]}
     >
       {children}
       {selected && (

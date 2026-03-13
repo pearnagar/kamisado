@@ -9,6 +9,7 @@ interface WinOverlayProps {
   gameMode:   GameMode;
   matchScore: { readonly p1: number; readonly p2: number };
   onReset:    () => void;
+  onGoBack:   () => void;
 }
 
 const WINNER: Partial<Record<GameStatus, Player>> = {
@@ -37,7 +38,7 @@ function buildScore(status: GameStatus, gameMode: GameMode, matchScore: WinOverl
   return `${matchScore.p1} — ${matchScore.p2}`;
 }
 
-export default function WinOverlay({ status, gameMode, matchScore, onReset }: WinOverlayProps): React.JSX.Element {
+export default function WinOverlay({ status, gameMode, matchScore, onReset, onGoBack }: WinOverlayProps): React.JSX.Element {
   const opacity   = useSharedValue(0);
   const isVisible = status !== GameStatus.Active;
 
@@ -74,6 +75,12 @@ export default function WinOverlay({ status, gameMode, matchScore, onReset }: Wi
         style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
       >
         <Text style={styles.buttonText}>New Game</Text>
+      </Pressable>
+      <Pressable
+        onPress={onGoBack}
+        style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}
+      >
+        <Text style={styles.menuButtonText}>Main Menu</Text>
       </Pressable>
     </Animated.View>
   );
@@ -123,5 +130,21 @@ const styles = StyleSheet.create({
     fontSize:      16,
     fontWeight:    '700',
     letterSpacing: 0.5,
+  },
+  menuButton: {
+    paddingVertical:   10,
+    paddingHorizontal: 32,
+    borderRadius:      12,
+    borderWidth:       1,
+    borderColor:       'rgba(255,255,255,0.35)',
+  },
+  menuButtonPressed: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  menuButtonText: {
+    color:         'rgba(255,255,255,0.7)',
+    fontSize:      14,
+    fontWeight:    '600',
+    letterSpacing: 0.3,
   },
 });

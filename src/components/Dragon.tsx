@@ -99,7 +99,8 @@ const Dragon = memo(function Dragon({
     <Animated.View style={animatedStyle} renderToHardwareTextureAndroid>
       <Pressable
         onPress={handlePress}
-        style={[styles.stone, { width: size, height: size, backgroundColor: stoneColor }]}
+        android_ripple={null}
+        style={() => [styles.stone, { width: size, height: size, backgroundColor: stoneColor }]}
       >
         {/* Camber bevel — simulates curved stone surface catching light */}
         <View pointerEvents="none" style={styles.bevel} />
@@ -128,11 +129,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
+    overflow: 'hidden',
   },
   bevel: {
     position: 'absolute',
