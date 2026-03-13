@@ -74,7 +74,38 @@
 
 ---
 
-## Phase 5: Store Launch
+## Phase 5: Undo & UI Polish ✅
+**Goal:** Premium undo system, clean press feedback, verified with a Jest suite.
+
+- [x] Suppress Android ripple / pressed-state square highlight on Cell and Dragon (`android_ripple={null}` + function-style `style` prop)
+- [x] Remove "Bot is thinking…" overlay — `isAiThinking` kept as input-blocking flag only
+- [x] History stack in `Board.tsx`: `HistoryEntry[]` storing pre-move `{gameState, lastMove, move}` snapshots
+- [x] `handleUndo` — PvP: pop 1 entry; PvE: pop 2 entries (bot reply + human move)
+- [x] Animated undo via existing overlay-Dragon slide system (`PendingMove.isUndo` + `pendingUndoChainRef`)
+- [x] Key-based overlay Dragon remount (`overlay-dragon-{row}-{col}`) to fix PvE teleport bug
+- [x] Undo button disabled states (`canUndo` guard: no pending animation, no AI thinking, sufficient history)
+- [x] **26/26 Jest unit tests** (`src/engine/__tests__/boardHistory.test.ts`) — run with `npm test`
+
+**Exit criteria:** Undo works in PvP and PvE with slide animation. 26 tests green. ✓ Verified 2026-03-13.
+
+---
+
+## Phase 6: Mega-Board (10×10)
+**Goal:** Playable 10×10 variant on the same codebase.
+
+- [ ] Extend board layout constants for 10×10 color grid (`gameConstants.ts`)
+- [ ] Add two extra dragon pieces per player (one per new color column)
+- [ ] `CELL_SIZE` responsive scaling so both 8×8 and 10×10 fit on screen
+- [ ] `GameMode.Mega` variant (or board-size param) threaded through `createInitialGameState`
+- [ ] Move validator / AI candidate generation verified for wider board
+- [ ] Board-size selector in UI (toggle 8×8 / 10×10 before starting a game)
+- [ ] Jest tests covering 10×10 initial state and legal move generation
+
+**Exit criteria:** A full 10×10 game is playable with AI on device.
+
+---
+
+## Phase 7: Store Launch
 **Goal:** App live on Google Play.
 
 - [ ] Marathon mode UI (engine already implemented)

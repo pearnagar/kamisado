@@ -184,6 +184,55 @@ Player reaches back rank
 
 ---
 
+## Phase 5 — Undo System
+
+### History Stack
+
+`Board.tsx` maintains a `HistoryEntry[]` array that grows by one entry on every committed move and is cleared on reset or new game.
+
+```ts
+interface HistoryEntry {
+  gameState: GameState;                                         // snapshot BEFORE the move
+  lastMove:  { from: Coord; to: Coord } | null;                // last-move highlight before this move
+  move:      { from: Coord; to: Coord };                       // the move that was committed
+}
+```
+
+The entry stores the **pre-move** state, so restoring `entry.gameState` perfectly reverses all engine side-effects (board, turn, activeColor, moveHistory hash, status).
+
+### Undo Rules
+
+| Mode | Entries popped | Effect |
+|---|---|---|
+| PvP | 1 | Reverts the most recent half-move; returns control to the player who just moved |
+| PvE | 2 | Reverts bot reply + preceding human move together; returns White's turn to the human |
+
+Popping 2 in PvE is mandatory: popping only the bot's move would leave it as White's turn but with a locked color the human didn't choose — an unplayable state.
+
+### Undo Animation
+
+Undo reuses the existing overlay-Dragon slide system rather than a separate animation path:
+
+1. `handleUndo` sets `pendingMove` with `isUndo: true` and `nextLastMove` (the restored highlight).
+2. The overlay Dragon slides from `to → from` (reverse of a normal move).
+3. `handleAnimationComplete` detects `isUndo`, restores `gameState` and `lastMove` from the history entry, then trims the history array.
+4. For PvE, a `pendingUndoChainRef` stores the second (human) entry so step 3 immediately queues the next animation without `setTimeout`.
+
+The overlay Dragon is keyed on its `from` position (`overlay-dragon-{row}-{col}`) so each undo step mounts a fresh component with zeroed Reanimated shared values, preventing the "teleport to origin" bug.
+
+### Undo Button Guard (`canUndo`)
+
+```ts
+const canUndo =
+  pendingMove === null &&          // no animation in flight
+  !isAiThinking &&                 // AI not mid-computation
+  history.length >= (opponentMode === 'PvE' ? 2 : 1);
+```
+
+The button renders as visually disabled (faint border + very dim text) when `canUndo` is false.
+
+---
+
 ## Mobile UX Guidelines
 
 ### Touch Targets
