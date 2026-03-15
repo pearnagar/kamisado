@@ -7,9 +7,11 @@
  * has the same color as the cell at [7-r][7-c]. This is the property that
  * makes the game fair for both players.
  *
+ * The 10x10 Megasado grid obeys the same 180° symmetry: [r][c] = [9-r][9-c].
+ *
  * Row 0 = Black's home rank (back rank / starting rank)
- * Row 7 = White's home rank
- * Columns 0–7 = left to right from each player's perspective (Black's POV used here)
+ * Row N-1 = White's home rank
+ * Columns 0–(N-1) = left to right from each player's perspective (Black's POV used here)
  */
 
 // ---------------------------------------------------------------------------
@@ -25,6 +27,9 @@ export enum KamisadoColor {
   Red    = 'Red',
   Green  = 'Green',
   Brown  = 'Brown',
+  // Megasado (10x10) additions
+  Silver = 'Silver',
+  Gold   = 'Gold',
 }
 
 /** Traditional kanji symbol for each dragon piece color. */
@@ -37,6 +42,8 @@ export const COLOR_KANJI: Readonly<Record<KamisadoColor, string>> = {
   [KamisadoColor.Red]:    '獅', // Lion
   [KamisadoColor.Green]:  '蛇', // Snake
   [KamisadoColor.Brown]:  '龜', // Tortoise
+  [KamisadoColor.Silver]: '銀', // Silver (Gin)
+  [KamisadoColor.Gold]:   '金', // Gold (Kin)
 } as const;
 
 /** Hex color for rendering each dragon color in the UI. */
@@ -49,6 +56,8 @@ export const COLOR_HEX: Readonly<Record<KamisadoColor, string>> = {
   [KamisadoColor.Red]:    '#DC143C',
   [KamisadoColor.Green]:  '#228B22',
   [KamisadoColor.Brown]:  '#8B4513',
+  [KamisadoColor.Silver]: '#C0C0C0',
+  [KamisadoColor.Gold]:   '#D4AF37',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -73,11 +82,20 @@ export const DEFAULT_CLOCK_SECONDS = 300;
 
 export enum GameMode {
   /** Single game — first to reach the back rank wins outright. */
-  Single   = 'Single',
+  Single = 'Single',
   /** Match — first player to win a target number of rounds wins the match. */
-  Match    = 'Match',
-  /** Marathon — accumulate points over rounds; first to the point target wins. */
-  Marathon = 'Marathon',
+  Match  = 'Match',
+}
+
+// ---------------------------------------------------------------------------
+// Board Variant
+// ---------------------------------------------------------------------------
+
+export enum BoardVariant {
+  /** Classic 8×8 Kamisado board. */
+  Standard = 'Standard',
+  /** 10×10 Megasado board with Silver and Gold pieces. */
+  Mega     = 'Mega',
 }
 
 // ---------------------------------------------------------------------------
@@ -87,12 +105,12 @@ export enum GameMode {
 export enum Player {
   /** Starts at row 0, moves downward (increasing row index). */
   Black = 'Black',
-  /** Starts at row 7, moves upward (decreasing row index). */
+  /** Starts at row (size-1), moves upward (decreasing row index). */
   White = 'White',
 }
 
 // ---------------------------------------------------------------------------
-// Board
+// 8×8 Board
 // ---------------------------------------------------------------------------
 
 export const BOARD_SIZE = 8;
@@ -125,6 +143,70 @@ export const BOARD_COLORS: Readonly<KamisadoColor[][]> = [
 ] as const;
 
 // ---------------------------------------------------------------------------
+// 10×10 Megasado Board
+// ---------------------------------------------------------------------------
+
+export const MEGA_BOARD_SIZE = 10;
+
+const Sv = KamisadoColor.Silver;
+const Gd = KamisadoColor.Gold;
+
+/**
+ * Megasado 10×10 board layout.
+ * Uses all 10 colors: the standard 8 plus Silver and Gold.
+ *
+ * Row 0 sequence: Brown Green Red Silver Gold Yellow Pink Blue Purple Orange
+ *
+ * Symmetry: MEGA_BOARD_COLORS[r][c] === MEGA_BOARD_COLORS[9-r][9-c] for all r, c.
+ * Latin square: each color appears exactly once per row and column.
+ */
+export const MEGA_BOARD_COLORS: Readonly<KamisadoColor[][]> = [
+  // col:   0   1   2   3   4   5   6   7   8   9
+  [         O, R,  G,  Gd, Y, Pk,  Sv, B,  P,  Br  ], // row 0  (Black's home rank)
+  [         B,  O, Pk,  P,  Gd,  Sv, R,  Y,  Br,  G ], // row 1
+  [         P,  Gd,  O, Pk,  G, B,  Y,  Br, Sv,  R ], // row 2
+  [         Pk, G,  Gd,  O,  R, P,  Br,  Sv, B, Y  ], // row 3
+  [         Sv,  Pk,  P,  B, O,  Br,  G, R,  Y, Gd ], // row 4
+  [         Gd, Y, R,  G, Br,  O,  B,  P,  Pk,  Sv  ], // row 5
+  [         Y,  B, Sv, Br,  P,  R, O,  Gd,  G,  Pk ], // row 6
+  [         R,  Sv,  Br, Y,  B,  G, Pk,  O, Gd,  P  ], // row 7
+  [         G,  Br, Y,  R,  Sv, Gd,  P,  Pk,  O, B  ], // row 8
+  [         Br,  P,  B,  Sv, Pk,  Y,  Gd, G,  R,  O  ], // row 9  (White's home rank)
+] as const;
+
+// ---------------------------------------------------------------------------
+// Board Config
+// ---------------------------------------------------------------------------
+
+export interface BoardConfig {
+  readonly variant:     BoardVariant;
+  readonly size:        number;
+  /** Color grid — boardColors[row][col]. */
+  readonly colors:      Readonly<KamisadoColor[][]>;
+  /**
+   * Maximum squares a piece may travel in one move (straight or diagonal).
+   * null = unlimited (standard Kamisado rule).
+   * 7 = Megasado rule — pieces may move at most 7 squares per turn.
+   */
+  readonly maxMoveDist: number | null;
+}
+
+export const BOARD_CONFIGS: Readonly<Record<BoardVariant, BoardConfig>> = {
+  [BoardVariant.Standard]: {
+    variant:      BoardVariant.Standard,
+    size:         BOARD_SIZE,
+    colors:       BOARD_COLORS,
+    maxMoveDist:  null,
+  },
+  [BoardVariant.Mega]: {
+    variant:      BoardVariant.Mega,
+    size:         MEGA_BOARD_SIZE,
+    colors:       MEGA_BOARD_COLORS,
+    maxMoveDist:  7,
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Piece
 // ---------------------------------------------------------------------------
 
@@ -139,7 +221,7 @@ const makePiece = (color: KamisadoColor, player: Player): Piece => ({
 });
 
 // ---------------------------------------------------------------------------
-// Initial Positions
+// Initial Positions (8×8 only — legacy helper used by createInitialGameState)
 // ---------------------------------------------------------------------------
 
 export interface PositionedPiece {
@@ -149,7 +231,7 @@ export interface PositionedPiece {
 }
 
 /**
- * Starting positions for all 16 pieces.
+ * Starting positions for all 16 pieces on the standard 8×8 board.
  * Each piece is placed on the cell whose color matches its own.
  *
  * Black occupies row 0 (cols 0–7 match the row-0 color sequence).

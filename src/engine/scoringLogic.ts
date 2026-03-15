@@ -8,6 +8,8 @@
  *
  * Round-start convention: the loser of each round moves first in the next round
  * (standard Kamisado tournament rule).
+ *
+ * boardConfig is preserved across rounds so a Mega game stays Mega.
  */
 
 import { Player, GameStatus, GameMode } from '../constants/gameConstants';
@@ -21,12 +23,6 @@ import { createInitialGameState } from './gameState';
 /** First to this many round-wins takes the match. */
 const DEFAULT_MATCH_TARGET = 3;
 
-/**
- * Points per round equal the round number (round 1 = 1 pt, round 2 = 2 pts …).
- * First player to accumulate this many points wins the marathon.
- */
-const DEFAULT_MARATHON_TARGET = 10;
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -35,11 +31,11 @@ const opponent = (p: Player): Player =>
   p === Player.Black ? Player.White : Player.Black;
 
 /**
- * Resets the board for a new round, carrying over match metadata.
+ * Resets the board for a new round, carrying over match metadata and board variant.
  * The loser (opponent of winner) moves first in the next round.
  */
 const startNextRound = (state: GameState, winner: Player): GameState => {
-  const fresh = createInitialGameState();
+  const fresh = createInitialGameState(state.boardConfig.variant);
   return {
     ...fresh,
     gameMode:    state.gameMode,
@@ -81,7 +77,7 @@ export class SingleGameStrategy implements IRoundStrategy {
 }
 
 // ---------------------------------------------------------------------------
-// MatchStrategy  (LongGameStrategy / best-of-N)
+// MatchStrategy  (best-of-N)
 // ---------------------------------------------------------------------------
 
 /**
@@ -116,56 +112,13 @@ export class MatchStrategy implements IRoundStrategy {
 }
 
 // ---------------------------------------------------------------------------
-// MarathonStrategy  (point accumulation)
-// ---------------------------------------------------------------------------
-
-/**
- * Rounds yield increasing points (round N is worth N points).
- * First player to accumulate `target` total points wins.
- */
-export class MarathonStrategy implements IRoundStrategy {
-  private readonly target: number;
-
-  constructor(target: number = DEFAULT_MARATHON_TARGET) {
-    this.target = target;
-  }
-
-  handleRoundEnd(state: GameState, winner: Player): GameState {
-    const points = state.roundNumber;          // escalating value
-    const newScore = {
-      p1: state.matchScore.p1 + (winner === Player.White ? points : 0),
-      p2: state.matchScore.p2 + (winner === Player.Black ? points : 0),
-    };
-
-    const matchWinner = newScore.p1 >= this.target
-      ? Player.White
-      : newScore.p2 >= this.target
-        ? Player.Black
-        : null;
-
-    if (matchWinner !== null) {
-      return {
-        ...state,
-        matchScore:      newScore,
-        status:          matchWinner === Player.White ? GameStatus.WonPlayer1 : GameStatus.WonPlayer2,
-        isDeadlocked:    false,
-        deadlockedPiece: null,
-      };
-    }
-
-    return startNextRound({ ...state, matchScore: newScore }, winner);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
 /** Returns the correct strategy instance for the given game mode. */
 export const getStrategy = (mode: GameMode): IRoundStrategy => {
   switch (mode) {
-    case GameMode.Single:   return new SingleGameStrategy();
-    case GameMode.Match:    return new MatchStrategy();
-    case GameMode.Marathon: return new MarathonStrategy();
+    case GameMode.Single: return new SingleGameStrategy();
+    case GameMode.Match:  return new MatchStrategy();
   }
 };

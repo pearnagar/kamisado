@@ -1,22 +1,29 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
-import { BOARD_COLORS, BOARD_SIZE, DEFAULT_CLOCK_SECONDS, GameMode, GameStatus, KamisadoColor, Player } from '../constants/gameConstants';
+import {
+  BOARD_COLORS,
+  MEGA_BOARD_COLORS,
+  BoardVariant,
+  BOARD_CONFIGS,
+  DEFAULT_CLOCK_SECONDS,
+  GameMode,
+  GameStatus,
+  KamisadoColor,
+  Player,
+} from '../constants/gameConstants';
 import { GameState, createInitialGameState } from '../engine/gameState';
 import { getLegalMoves, getAvailablePieces } from '../engine/moveValidator';
 import { makeMove } from '../engine/moveLogic';
 import { findBestMove } from '../engine/aiEngine';
+import { initSounds, unloadSounds, playSound } from '../utils/soundManager';
 import Cell from './Cell';
 import ChessClock from './ChessClock';
 import Dragon from './Dragon';
 import ScoreHeader from './ScoreHeader';
 import WinOverlay from './WinOverlay';
-
-const CELL_SIZE  = 44;
-const boardWidth = BOARD_SIZE * CELL_SIZE;
-const FLAT_BOARD_COLORS: readonly KamisadoColor[] = BOARD_COLORS.flat() as KamisadoColor[];
 
 const AI_PLAYER = Player.Black;
 
@@ -30,28 +37,11 @@ const DIFFICULTY_DEPTH: Record<Difficulty, number> = {
   Hard:   6,
 };
 
-/** Creates a fresh board with the chosen scoring mode baked in. */
-const newGame = (mode: GameMode): GameState => ({
-  ...createInitialGameState(),
-  gameMode: mode,
-});
-
-function LegalMoveDot({ visible }: { visible: boolean }): React.JSX.Element {
-  const opacity = useSharedValue(0);
-
-  useEffect(() => {
-    opacity.value = withTiming(visible ? 1 : 0, { duration: 200 });
-  }, [visible]);
-
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[styles.legalMoveDot, animatedStyle]}
-    />
-  );
-}
+/**
+ * On 10×10 Mega boards the branching factor is significantly higher.
+ * Cap the effective search depth to keep the AI responsive on mid-range devices.
+ */
+const MEGA_MAX_DEPTH = 4;
 
 /**
  * A pending move holds the pre-computed next GameState so that the board
@@ -70,18 +60,46 @@ interface PendingMove {
 }
 
 interface BoardProps {
-  onDeadlock?: (message: string) => void;
-  gameMode:   'pvp' | 'pve';
-  difficulty: 'easy' | 'medium' | 'hard';
-  matchType:  'single' | 'match';
+  onDeadlock?:   (message: string) => void;
+  gameMode:      'pvp' | 'pve';
+  difficulty:    'easy' | 'medium' | 'hard';
+  matchType:     'single' | 'match';
+  boardVariant?: 'standard' | 'mega';
 }
 
-export default function Board({ onDeadlock, gameMode, difficulty, matchType }: BoardProps): React.JSX.Element {
+export default function Board({
+  onDeadlock,
+  gameMode,
+  difficulty,
+  matchType,
+  boardVariant = 'standard',
+}: BoardProps): React.JSX.Element {
   const navigation = useNavigation<any>();
+  const { width: screenWidth } = useWindowDimensions();
+
+  // --- Derive board config from the prop ---
+  const variant: BoardVariant =
+    boardVariant === 'mega' ? BoardVariant.Mega : BoardVariant.Standard;
+  const activeBoardConfig = BOARD_CONFIGS[variant];
+  const boardSize  = activeBoardConfig.size;
+  const boardColors = boardVariant === 'mega' ? MEGA_BOARD_COLORS : BOARD_COLORS;
+
+  // Dynamic cell size — fill screen width minus 16px padding on each side.
+  const CELL_SIZE  = Math.floor((screenWidth - 32) / boardSize);
+  const boardWidth = boardSize * CELL_SIZE;
+
+  // Flat list of cell colors for the board grid renderer.
+  // Recomputed only when boardVariant changes.
+  const FLAT_BOARD_COLORS = useMemo(
+    () => boardColors.flat() as KamisadoColor[],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [boardVariant],
+  );
 
   // Map props to internal types
   const opponentMode: OpponentMode = gameMode === 'pvp' ? 'PvP' : 'PvE';
-  const internalDifficulty: Difficulty = (difficulty.charAt(0).toUpperCase() + difficulty.slice(1)) as Difficulty;
+  const internalDifficulty: Difficulty =
+    (difficulty.charAt(0).toUpperCase() + difficulty.slice(1)) as Difficulty;
   const scoringMode: GameMode = matchType === 'match' ? GameMode.Match : GameMode.Single;
 
   interface HistoryEntry {
@@ -91,6 +109,12 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
     move:      { from: { row: number; col: number }; to: { row: number; col: number } };
   }
 
+  /** Creates a fresh game with the chosen scoring mode and board variant baked in. */
+  const newGame = useCallback((mode: GameMode): GameState => ({
+    ...createInitialGameState(variant),
+    gameMode: mode,
+  }), [variant]);
+
   const [gameState, setGameState]         = useState<GameState>(() => newGame(scoringMode));
   const [selectedPiece, setSelectedPiece] = useState<{ row: number; col: number } | null>(null);
   const [pendingMove, setPendingMove]     = useState<PendingMove | null>(null);
@@ -99,7 +123,10 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
   // Incremented on every explicit reset so ChessClock key changes even when
   // roundNumber stays at 1 (e.g. restarting a finished Single game).
   const [clockEpoch, setClockEpoch]       = useState(0);
-  const [lastMove, setLastMove]           = useState<{ from: { row: number; col: number }; to: { row: number; col: number } } | null>(null);
+  const [lastMove, setLastMove]           = useState<{
+    from: { row: number; col: number };
+    to:   { row: number; col: number };
+  } | null>(null);
 
   // Stable refs so async callbacks always read the latest values without
   // those values being in effect dependency arrays.
@@ -119,12 +146,16 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
   const hasGameStarted = gameState.moveHistory.length > 0;
 
   // -------------------------------------------------------------------------
+  // Sound: preload pool on mount, release on unmount
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    void initSounds();
+    return () => { void unloadSounds(); };
+  }, []);
+
+  // -------------------------------------------------------------------------
   // AI: fires when the turn belongs to the AI, mode is PvE, and no animation
   //     is in progress.
-  //
-  // `gameState.isDeadlocked` in deps: when a move deadlocks the opponent and
-  // the turn stays with the AI, `turn` alone doesn't change — tracking
-  // `isDeadlocked` ensures the effect re-fires once the shake clears the flag.
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (opponentMode !== 'PvE') return;
@@ -134,13 +165,14 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
 
     let frameId: ReturnType<typeof requestAnimationFrame>;
 
-    // 600 ms after the slide animation settles, show the thinking indicator,
-    // then yield one frame so React flushes that render before JS blocks on minimax.
     const timer = setTimeout(() => {
       const state = gameStateRef.current;
-      const depth = DIFFICULTY_DEPTH[difficultyRef.current];
+      // Cap depth for Mega boards to keep AI responsive
+      const baseDepth  = DIFFICULTY_DEPTH[difficultyRef.current];
+      const depth      = variant === BoardVariant.Mega
+        ? Math.min(baseDepth, MEGA_MAX_DEPTH)
+        : baseDepth;
 
-      // Re-validate — state or mode may have changed while the timer was pending
       if (
         opponentMode !== 'PvE' ||
         state.status !== GameStatus.Active ||
@@ -155,6 +187,7 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
         const best = findBestMove(currentState, depth, AI_PLAYER);
         if (best !== null) {
           const nextState = makeMove(currentState, best.from, best.to);
+          playSound('slide');
           setPendingMove({ from: best.from, to: best.to, nextState });
         }
         setIsAiThinking(false);
@@ -174,6 +207,7 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
   useEffect(() => {
     if (!gameState.isDeadlocked) return;
 
+    playSound('warning');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
     const blockedPlayer = gameState.turn === Player.White ? Player.Black : Player.White;
@@ -189,94 +223,107 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
   }, [gameState.isDeadlocked]);
 
   // -------------------------------------------------------------------------
-  // Derived sets (memoised)
+  // Derived sets (memoised) — index = row * boardSize + col
   // -------------------------------------------------------------------------
   const availableSet = useMemo(() => {
     const available = getAvailablePieces(gameState);
-    return new Set(available.map(p => p.row * BOARD_SIZE + p.col));
-  }, [gameState]);
+    return new Set(available.map(p => p.row * boardSize + p.col));
+  }, [gameState, boardSize]);
 
   const legalMoveIndices = useMemo(() => {
     if (!selectedPiece) return new Set<number>();
-    const moves = getLegalMoves(gameState.board, selectedPiece.row, selectedPiece.col);
-    return new Set(moves.map(m => m.row * BOARD_SIZE + m.col));
-  }, [selectedPiece, gameState.board]);
+    const moves = getLegalMoves(
+      gameState.board,
+      selectedPiece.row,
+      selectedPiece.col,
+      gameState.boardConfig,
+    );
+    return new Set(moves.map(m => m.row * boardSize + m.col));
+  }, [selectedPiece, gameState.board, gameState.boardConfig, boardSize]);
 
   const lastMoveIndices = useMemo(() => {
     if (!lastMove) return new Set<number>();
     return new Set([
-      lastMove.from.row * BOARD_SIZE + lastMove.from.col,
-      lastMove.to.row   * BOARD_SIZE + lastMove.to.col,
+      lastMove.from.row * boardSize + lastMove.from.col,
+      lastMove.to.row   * boardSize + lastMove.to.col,
     ]);
-  }, [lastMove]);
+  }, [lastMove, boardSize]);
 
   // Forced piece: only when exactly one piece can move (all turns after the first).
-  // On the opening move all 8 pieces are available — no ring needed then.
   const forcedPieceIndex = useMemo(() => {
     if (!hasGameStarted || isGameOver || availableSet.size !== 1) return -1;
     return [...availableSet][0];
   }, [hasGameStarted, isGameOver, availableSet]);
 
   // -------------------------------------------------------------------------
-  // Human input handlers — blocked while AI is thinking or animating
+  // Human input handlers
   // -------------------------------------------------------------------------
   const handleDragonPress = useCallback((row: number, col: number): void => {
     if (isGameOver || isAiThinking || pendingMove !== null) return;
-    if (!availableSet.has(row * BOARD_SIZE + col)) return;
+    if (!availableSet.has(row * boardSize + col)) return;
+    const isDeselect = selectedPiece?.row === row && selectedPiece?.col === col;
+    if (!isDeselect) playSound('select');
     setSelectedPiece(prev =>
       prev?.row === row && prev?.col === col ? null : { row, col },
     );
-  }, [isGameOver, isAiThinking, pendingMove, availableSet]);
+  }, [isGameOver, isAiThinking, pendingMove, availableSet, boardSize, selectedPiece]);
 
   const handleCellPress = useCallback((row: number, col: number): void => {
     if (isGameOver || isAiThinking || pendingMove !== null) return;
-    if (!selectedPiece || !legalMoveIndices.has(row * BOARD_SIZE + col)) return;
+    if (!selectedPiece) return;
+    if (!legalMoveIndices.has(row * boardSize + col)) {
+      playSound('invalid');
+      return;
+    }
     const from      = selectedPiece;
     const to        = { row, col };
     const nextState = makeMove(gameStateRef.current, from, to);
+    playSound('slide');
     setPendingMove({ from, to, nextState });
     setSelectedPiece(null);
-  }, [isGameOver, isAiThinking, pendingMove, selectedPiece, legalMoveIndices]);
+  }, [isGameOver, isAiThinking, pendingMove, selectedPiece, legalMoveIndices, boardSize]);
 
-  // Stable ref — zero deps keeps Dragon's memo comparator from seeing a new
-  // function reference every render. pendingMoveRef gives access to latest state.
   const handleAnimationComplete = useCallback((): void => {
     const pm = pendingMoveRef.current;
     if (!pm) return;
 
     if (!pm.isUndo) {
-      // Normal move: snapshot pre-move state (including the move coords) for undo.
-      setHistory(prev => [...prev, {
-        gameState: gameStateRef.current,
-        lastMove:  lastMoveRef.current,
-        move:      { from: pm.from, to: pm.to },
-      }]);
-      setLastMove({ from: pm.from, to: pm.to });
+      const roundChanged = pm.nextState.roundNumber > gameStateRef.current.roundNumber;
+      if (roundChanged) {
+        // A new round started — wipe history so Undo cannot cross round boundaries.
+        setHistory([]);
+        setLastMove(null);
+      } else {
+        setHistory(prev => [...prev, {
+          gameState: gameStateRef.current,
+          lastMove:  lastMoveRef.current,
+          move:      { from: pm.from, to: pm.to },
+        }]);
+        setLastMove({ from: pm.from, to: pm.to });
+      }
     } else {
-      // Undo move: restore the lastMove highlight that existed before this move.
       setLastMove(pm.nextLastMove !== undefined ? pm.nextLastMove : null);
     }
 
     setGameState(pm.nextState);
     setPendingMove(null);
 
-    // Chain second undo step (PvE only) — runs synchronously so React batches it.
+    // Chain second undo step (PvE only)
     const chain = pendingUndoChainRef.current;
     if (chain) {
       pendingUndoChainRef.current = null;
       setPendingMove({
-        from:          chain.move.to,
-        to:            chain.move.from,
-        nextState:     chain.gameState,
-        nextLastMove:  chain.lastMove,
-        isUndo:        true,
+        from:         chain.move.to,
+        to:           chain.move.from,
+        nextState:    chain.gameState,
+        nextLastMove: chain.lastMove,
+        isUndo:       true,
       });
     }
   }, []);
 
   // -------------------------------------------------------------------------
-  // Timeout handlers — use functional setState to safely guard against the
-  // rare case where both clocks hit 0 in the same tick (keeps first win only).
+  // Timeout handlers
   // -------------------------------------------------------------------------
   const handleWhiteTimeout = useCallback((): void => {
     setGameState(prev => {
@@ -292,27 +339,36 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
     });
   }, []);
 
-  // Animate a piece sliding back to where it came from.
-  // PvP: one step. PvE: bot's move reverses first, then the chain ref triggers
-  // the human's move reversal inside handleAnimationComplete.
   const handleUndo = (): void => {
     if (opponentMode === 'PvP') {
       if (history.length < 1) return;
       const entry = history[history.length - 1];
       setHistory(prev => prev.slice(0, -1));
       setSelectedPiece(null);
-      setPendingMove({ from: entry.move.to, to: entry.move.from, nextState: entry.gameState, nextLastMove: entry.lastMove, isUndo: true });
+      setPendingMove({
+        from:         entry.move.to,
+        to:           entry.move.from,
+        nextState:    entry.gameState,
+        nextLastMove: entry.lastMove,
+        isUndo:       true,
+      });
       return;
     }
 
-    // PvE: queue the human entry so handleAnimationComplete chains it after bot's.
+    // PvE: reverse bot's move then chain human's move reversal.
     if (history.length < 2) return;
     const botEntry   = history[history.length - 1];
     const humanEntry = history[history.length - 2];
     setHistory(prev => prev.slice(0, -2));
     setSelectedPiece(null);
     pendingUndoChainRef.current = humanEntry;
-    setPendingMove({ from: botEntry.move.to, to: botEntry.move.from, nextState: botEntry.gameState, nextLastMove: botEntry.lastMove, isUndo: true });
+    setPendingMove({
+      from:         botEntry.move.to,
+      to:           botEntry.move.from,
+      nextState:    botEntry.gameState,
+      nextLastMove: botEntry.lastMove,
+      isUndo:       true,
+    });
   };
 
   const handleReset = (): void => {
@@ -327,9 +383,7 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
   };
 
   // -------------------------------------------------------------------------
-  // Overlay Dragon: lifted out of its Cell so it renders above all sibling
-  // cells regardless of paint order. Board state is deferred until the
-  // animation completes, so the Cell below shows empty while it flies.
+  // Overlay Dragon
   // -------------------------------------------------------------------------
   const overlayPiece = pendingMove !== null
     ? gameState.board[pendingMove.from.row][pendingMove.from.col]
@@ -340,15 +394,13 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
   // -------------------------------------------------------------------------
   return (
     <View style={styles.wrapper}>
-      {/* Score row — placeholder height in Single, live score in Match/Marathon */}
       <ScoreHeader
         gameMode={gameState.gameMode}
         matchScore={gameState.matchScore}
         roundNumber={gameState.roundNumber}
       />
 
-      {/* Chess clocks — one per player, keyed so they remount on reset/new round */}
-      <View style={styles.clockRow}>
+      <View style={[styles.clockRow, { width: boardWidth }]}>
         <ChessClock
           key={`w-${clockEpoch}-${gameState.roundNumber}`}
           label="White"
@@ -366,18 +418,17 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
       </View>
 
       {/* Board area */}
-      <View style={styles.container}>
-        <View style={styles.board}>
+      <View style={{ width: boardWidth, height: boardWidth, position: 'relative' }}>
+        <View style={{ width: boardWidth, height: boardWidth, flexDirection: 'row', flexWrap: 'wrap' }}>
           {FLAT_BOARD_COLORS.map((color, index) => {
-            const row   = Math.floor(index / BOARD_SIZE);
-            const col   = index % BOARD_SIZE;
+            const row   = Math.floor(index / boardSize);
+            const col   = index % boardSize;
             const piece = gameState.board[row][col];
             const isSelected    = selectedPiece?.row === row && selectedPiece?.col === col;
             const isLegalMove   = legalMoveIndices.has(index);
             const isLastMove    = lastMoveIndices.has(index);
             const isForcedPiece = forcedPieceIndex === index;
 
-            // Hide the in-cell Dragon while it's animating in the overlay.
             const isAnimatingSource =
               pendingMove?.from.row === row && pendingMove?.from.col === col;
 
@@ -401,7 +452,10 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
                 {isLastMove && (
                   <View pointerEvents="none" style={styles.lastMoveOverlay} />
                 )}
-                <LegalMoveDot visible={isLegalMove && !isAiThinking} />
+                <LegalMoveDot
+                  visible={isLegalMove && !isAiThinking}
+                  cellSize={CELL_SIZE}
+                />
                 {piece !== null && !isAnimatingSource && (
                   <View style={isForcedPiece ? [
                     styles.forcedPieceWrapper,
@@ -423,19 +477,21 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
           })}
         </View>
 
-        {/* Overlay: animating Dragon rendered above all cells.
-            Positioned at the source cell; Dragon translates to the destination.
-            pointerEvents="none" keeps it non-interactive. */}
+        {/* Overlay Dragon — rendered above all cells during animation */}
         {pendingMove !== null && overlayPiece !== null && (
           <View
             pointerEvents="none"
-            style={[
-              styles.dragonOverlay,
-              {
-                left: pendingMove.from.col * CELL_SIZE,
-                top:  pendingMove.from.row * CELL_SIZE,
-              },
-            ]}
+            style={{
+              position:        'absolute',
+              width:           CELL_SIZE,
+              height:          CELL_SIZE,
+              left:            pendingMove.from.col * CELL_SIZE,
+              top:             pendingMove.from.row * CELL_SIZE,
+              justifyContent:  'center',
+              alignItems:      'center',
+              zIndex:          1000,
+              elevation:       20,
+            }}
           >
             <Dragon
               key={`overlay-dragon-${pendingMove.from.row}-${pendingMove.from.col}`}
@@ -462,7 +518,7 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
         />
       </View>
 
-      {/* Bottom controls — visible during active gameplay only */}
+      {/* Bottom controls */}
       {!isGameOver && (
         <View style={styles.bottomRow}>
           {(() => {
@@ -496,42 +552,60 @@ export default function Board({ onDeadlock, gameMode, difficulty, matchType }: B
   );
 }
 
+// -------------------------------------------------------------------------
+// LegalMoveDot — receives cellSize as prop so it can scale correctly
+// -------------------------------------------------------------------------
+function LegalMoveDot({
+  visible,
+  cellSize,
+}: {
+  visible:  boolean;
+  cellSize: number;
+}): React.JSX.Element {
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withTiming(visible ? 1 : 0, { duration: 200 });
+  }, [visible]);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const dotSize = cellSize * 0.28;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position:     'absolute',
+          width:        dotSize,
+          height:       dotSize,
+          borderRadius: 999,
+          backgroundColor: 'rgba(255,255,255,0.75)',
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
     gap: 14,
   },
-  container: {
-    width: boardWidth,
-    height: boardWidth,
-    position: 'relative',
-  },
-  board: {
-    width: boardWidth,
-    height: boardWidth,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  legalMoveDot: {
-    position: 'absolute',
-    width: CELL_SIZE * 0.28,
-    height: CELL_SIZE * 0.28,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-  },
-  dragonOverlay: {
-    position: 'absolute',
-    width:  CELL_SIZE,
-    height: CELL_SIZE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-    elevation: 20,
-  },
   clockRow: {
     flexDirection:  'row',
     justifyContent: 'space-between',
-    width:          boardWidth,
+  },
+  lastMoveOverlay: {
+    position:        'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  forcedPieceWrapper: {
+    borderRadius: 999,
+    borderWidth:  3,
+    borderColor:  '#FFFFFF',
   },
   quitButton: {
     paddingVertical:   8,
@@ -549,24 +623,14 @@ const styles = StyleSheet.create({
     fontWeight:    '500',
     letterSpacing: 0.2,
   },
-  lastMoveOverlay: {
-    position:        'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  forcedPieceWrapper: {
-    borderRadius: 999,
-    borderWidth:  3,
-    borderColor:  '#FFFFFF',
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    gap:           12,
-  },
   quitButtonDisabled: {
     borderColor: 'rgba(255,255,255,0.08)',
   },
   quitButtonTextDisabled: {
     color: 'rgba(255,255,255,0.2)',
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    gap:           12,
   },
 });

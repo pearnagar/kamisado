@@ -12,7 +12,7 @@
       "package": "com.peer.kamisado",
       "versionCode": 1
     },
-    "plugins": [],
+    "plugins": ["expo-av"],
     "extra": {
       "eas": {
         "projectId": "7a2cb80f-250e-4642-b8cd-7f6efe7dc096"

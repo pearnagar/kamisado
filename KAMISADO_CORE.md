@@ -75,7 +75,7 @@ gameState.ts       — GameState interface + createInitialGameState / resetGame
 moveValidator.ts   — getLegalMoves, getAvailablePieces, isDeadlocked
 moveLogic.ts       — makeMove (immutable), handleDeadlock (M6), M8 loop detection
 aiEngine.ts        — minimax + alpha-beta pruning, findBestMove, evaluateBoard
-scoringLogic.ts    — IRoundStrategy, SingleGameStrategy, MatchStrategy, MarathonStrategy, getStrategy
+scoringLogic.ts    — IRoundStrategy, SingleGameStrategy, MatchStrategy, getStrategy
 ```
 
 ### Strategy Pattern — `IRoundStrategy`
@@ -86,27 +86,38 @@ scoringLogic.ts    — IRoundStrategy, SingleGameStrategy, MatchStrategy, Marath
 |---|---|---|
 | `SingleGameStrategy` | Always | Terminal — no reset |
 | `MatchStrategy` | After target wins (default: 3) | Fresh board, loser moves first |
-| `MarathonStrategy` | After target pts (default: 10) | Fresh board, escalating point value |
-
-`MarathonStrategy` is fully implemented in the engine but **not exposed in the UI** (deferred to Phase 5).
 
 ### GameState Fields
 
 ```ts
 interface GameState {
-  board:          BoardState;           // 8×8, null = empty
-  turn:           Player;               // whose move it is
-  activeColor:    KamisadoColor | null; // forced piece color (null = free choice)
-  selectedPiece:  { row, col } | null;  // UI selection
-  status:         GameStatus;           // Active | Won* | Draw | *_Timeout
-  isDeadlocked:   boolean;              // true for one state after M6 forfeit
-  deadlockedPiece: { row, col } | null; // position of the blocked piece
-  moveHistory:    string[];             // hashes for M8 loop detection
-  gameMode:       GameMode;             // Single | Match | Marathon
-  matchScore:     { p1, p2 };          // running round wins (p1 = White)
-  roundNumber:    number;               // 1-based, increments each round
+  board:           BoardState;           // N×N, null = empty
+  turn:            Player;               // whose move it is
+  activeColor:     KamisadoColor | null; // forced piece color (null = free choice)
+  selectedPiece:   { row, col } | null;  // UI selection
+  status:          GameStatus;           // Active | Won* | Draw | *_Timeout
+  isDeadlocked:    boolean;              // true for one state after M6 forfeit
+  deadlockedPiece: { row, col } | null;  // position of the blocked piece
+  moveHistory:     string[];             // hashes for M8 loop detection
+  gameMode:        GameMode;             // Single | Match
+  matchScore:      { p1, p2 };          // running round wins (p1 = White)
+  roundNumber:     number;               // 1-based, increments each round
+  boardConfig:     BoardConfig;          // active variant — drives size, colors, maxMoveDist
 }
 ```
+
+### BoardConfig
+
+```ts
+interface BoardConfig {
+  variant:      BoardVariant;             // Standard | Mega
+  size:         number;                   // 8 or 10
+  colors:       Readonly<KamisadoColor[][]>; // cell color grid
+  maxMoveDist:  number | null;            // null = unlimited (8×8); 7 = Megasado rule
+}
+```
+
+`BOARD_CONFIGS[BoardVariant.Standard | BoardVariant.Mega]` provides the two canonical configs. The config is embedded in every `GameState` so all engine functions read it from state rather than importing module-level singletons.
 
 ---
 
@@ -233,12 +244,50 @@ The button renders as visually disabled (faint border + very dim text) when `can
 
 ---
 
+---
+
+## Phase 6 — Megasado (10×10)
+
+### New Colors
+
+| Color  | Hex       | Kanji | Meaning  |
+|--------|-----------|-------|----------|
+| Silver | `#C0C0C0` | 銀    | Gin      |
+| Gold   | `#D4AF37` | 金    | Kin      |
+
+Row 0 color order: Brown · Green · Red · Silver · Gold · Yellow · Pink · Blue · Purple · Orange
+
+### Megasado-Specific Rule
+
+Pieces may travel **at most 7 squares** per move (straight or diagonal). This cap is enforced via `boardConfig.maxMoveDist = 7` inside `getLegalMoves`.
+
+### Board Layout
+
+`MEGA_BOARD_COLORS` is a valid 10×10 Latin square satisfying:
+- One of each color per row and column
+- 180° rotational symmetry: `colors[r][c] === colors[9-r][9-c]`
+
+### Responsive Cell Sizing
+
+```ts
+const CELL_SIZE = Math.floor((screenWidth - 32) / boardSize);
+```
+
+`useWindowDimensions()` drives this so a 10×10 board automatically fits within the device's screen width. The same formula handles 8×8 (gives ~43 dp on a 380 dp screen) and 10×10 (gives ~35 dp).
+
+### AI in Mega Mode
+
+Hard difficulty is capped at depth 4 on the 10×10 board (`MEGA_MAX_DEPTH = 4`) to keep response times acceptable on mid-range Android devices. Easy and Medium are unaffected.
+
+---
+
 ## Mobile UX Guidelines
 
 ### Touch Targets
 
-- Minimum **44 × 44 dp** per cell (`CELL_SIZE = 44`)
-- Board fills screen width; cell size is fixed, not dynamic
+- Cell size is **dynamic** — `floor((screenWidth - 32) / boardSize)`
+- 8×8: ~43 dp per cell on a 380 dp screen
+- 10×10: ~35 dp per cell on a 380 dp screen
 
 ### Animations
 

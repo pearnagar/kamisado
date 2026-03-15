@@ -14,7 +14,7 @@
  *   // occur in a valid, non-terminal state handed to the AI).
  */
 
-import { Player, GameStatus, BOARD_SIZE } from '../constants/gameConstants';
+import { Player, GameStatus } from '../constants/gameConstants';
 import type { GameState } from './gameState';
 import type { BoardPosition } from './moveValidator';
 import { getLegalMoves, getAvailablePieces } from './moveValidator';
@@ -74,6 +74,9 @@ export const evaluateBoard = (state: GameState, aiPlayer: Player): number => {
     return 0;
   }
 
+  const { boardConfig } = state;
+  const boardSize = boardConfig.size;
+
   // --- Forfeit bonus (M6): one player lost their turn ---
   // state.turn is the player who gets to move again after the forfeit.
   let score = 0;
@@ -82,17 +85,16 @@ export const evaluateBoard = (state: GameState, aiPlayer: Player): number => {
   }
 
   // --- Heuristic: sum over all pieces on the board ---
-
-  for (let row = 0; row < BOARD_SIZE; row++) {
-    for (let col = 0; col < BOARD_SIZE; col++) {
+  for (let row = 0; row < boardSize; row++) {
+    for (let col = 0; col < boardSize; col++) {
       const piece = state.board[row][col];
       if (piece === null) continue;
 
-      // Advancement: Black moves toward row 7; White moves toward row 0.
+      // Advancement: Black moves toward row (size-1); White moves toward row 0.
       const advancement =
-        piece.player === Player.Black ? row : BOARD_SIZE - 1 - row;
+        piece.player === Player.Black ? row : boardSize - 1 - row;
 
-      const mobility = getLegalMoves(state.board, row, col).length;
+      const mobility = getLegalMoves(state.board, row, col, boardConfig).length;
 
       const pieceScore = advancement * ADVANCE_WEIGHT + mobility * MOBILITY_WEIGHT;
 
@@ -146,7 +148,7 @@ const minimax = (
     let best = -Infinity;
 
     outer: for (const from of available) {
-      const moves = getLegalMoves(state.board, from.row, from.col);
+      const moves = getLegalMoves(state.board, from.row, from.col, state.boardConfig);
       for (const to of moves) {
         const next  = makeMove(state, from, to);
         const score = minimax(next, depth - 1, alpha, beta, aiPlayer);
@@ -162,7 +164,7 @@ const minimax = (
     let best = Infinity;
 
     outer: for (const from of available) {
-      const moves = getLegalMoves(state.board, from.row, from.col);
+      const moves = getLegalMoves(state.board, from.row, from.col, state.boardConfig);
       for (const to of moves) {
         const next  = makeMove(state, from, to);
         const score = minimax(next, depth - 1, alpha, beta, aiPlayer);
@@ -199,13 +201,26 @@ export const findBestMove = (
   aiPlayer: Player,
 ): AiMove | null => {
   const available = getAvailablePieces(state);
-  
+
+  // ---------------------------------------------------------------------------
+  // Greedy win check — if any move wins immediately, take it without searching.
+  // Catches back-rank wins and M8-triggered wins in one pass.
+  // ---------------------------------------------------------------------------
+  const aiWinStatus = aiPlayer === Player.Black ? GameStatus.WonPlayer2 : GameStatus.WonPlayer1;
+  for (const from of available) {
+    const moves = getLegalMoves(state.board, from.row, from.col, state.boardConfig);
+    for (const to of moves) {
+      if (makeMove(state, from, to).status === aiWinStatus) {
+        return { from, to };
+      }
+    }
+  }
+
   let bestScore = -Infinity;
   let candidates: AiMove[] = [];
 
   for (const from of available) {
-    // יצירת עותק של המהלכים וערבוב שלו
-    const rawMoves = getLegalMoves(state.board, from.row, from.col);
+    const rawMoves = getLegalMoves(state.board, from.row, from.col, state.boardConfig);
     const moves = [...rawMoves].sort(() => Math.random() - 0.5);
 
     if (__DEV__) {
@@ -226,8 +241,7 @@ export const findBestMove = (
   }
 
   if (candidates.length === 0) return null;
-  
-  // בחירה רנדומלית מתוך המהלכים הטובים ביותר
+
   const randomIndex = Math.floor(Math.random() * candidates.length);
   const selectedMove = candidates[randomIndex];
 

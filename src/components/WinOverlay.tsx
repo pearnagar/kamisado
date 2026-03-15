@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { GameMode, GameStatus, Player } from '../constants/gameConstants';
+import { playSound } from '../utils/soundManager';
 
 interface WinOverlayProps {
   status:     GameStatus;
@@ -43,6 +44,7 @@ export default function WinOverlay({ status, gameMode, matchScore, onReset, onGo
   const isVisible = status !== GameStatus.Active;
 
   useEffect(() => {
+    if (isVisible) playSound('win');
     opacity.value = withTiming(isVisible ? 1 : 0, { duration: 350 });
   }, [isVisible]);
 
