@@ -60,7 +60,6 @@
 **Goal:** Match mode with chess clocks, fully integrated and tested.
 
 - [x] `IRoundStrategy` + `MatchStrategy` (best-of-3, 1 pt/round) — `src/engine/scoringLogic.ts`
-- [x] `MarathonStrategy` engine stub (deferred to Phase 5 — not exposed in UI)
 - [x] `ModeSelector` UI: `1 Game | Match (3)` segmented control
 - [x] `ScoreHeader`: live `Round N · White X — Y Black` bar (Match mode only)
 - [x] `ChessClock`: self-contained per-player countdown, `key`-remount reset pattern
@@ -90,25 +89,37 @@
 
 ---
 
-## Phase 6: Mega-Board (10×10)
+## Phase 6: Mega-Board (10×10) ✅
 **Goal:** Playable 10×10 variant on the same codebase.
 
-- [ ] Extend board layout constants for 10×10 color grid (`gameConstants.ts`)
-- [ ] Add two extra dragon pieces per player (one per new color column)
-- [ ] `CELL_SIZE` responsive scaling so both 8×8 and 10×10 fit on screen
-- [ ] `GameMode.Mega` variant (or board-size param) threaded through `createInitialGameState`
-- [ ] Move validator / AI candidate generation verified for wider board
-- [ ] Board-size selector in UI (toggle 8×8 / 10×10 before starting a game)
-- [ ] Jest tests covering 10×10 initial state and legal move generation
+- [x] `Silver` (#C0C0C0 / 銀) and `Gold` (#D4AF37 / 金) added to `KamisadoColor` enum
+- [x] `MEGA_BOARD_COLORS` — valid 10×10 Latin square with 180° rotational symmetry (`gameConstants.ts`)
+- [x] `BoardVariant` enum (`Standard` | `Mega`) + `BoardConfig` interface (`size`, `colors`, `maxMoveDist`)
+- [x] `BOARD_CONFIGS` record — centralised config for both variants
+- [x] `boardConfig: BoardConfig` field added to `GameState` — threads variant through entire engine
+- [x] `createInitialGameState(variant?)` — places 10 pieces per player on rows 0 and 9 for Mega
+- [x] `getLegalMoves` enforces `maxMoveDist = 7` in Mega mode (Megasado-specific rule)
+- [x] `getAvailablePieces` / move loops use `boardConfig.size` — no hardcoded 8
+- [x] Win condition checks `row (size-1)` dynamically — correct for both 8×8 and 10×10
+- [x] `aiEngine.ts` passes `boardConfig` to all `getLegalMoves` calls; `evaluateBoard` uses `boardConfig.size`
+- [x] `scoringLogic.ts` — `startNextRound` passes `state.boardConfig.variant` so a Mega match stays Mega
+- [x] `Board.tsx` — `boardVariant` prop; `CELL_SIZE = floor((screenWidth - 32) / boardSize)` via `useWindowDimensions`; AI depth capped at 4 for Mega (`MEGA_MAX_DEPTH`)
+- [x] `App.tsx` — `ToggleButton` component; "Standard (8×8)" / "Mega (10×10)" selector in `HomeScreen`; `boardVariant` threaded through navigation params
+- [x] All 64 existing Jest tests pass with no changes to test logic
 
-**Exit criteria:** A full 10×10 game is playable with AI on device.
+**Exit criteria:** A full 10×10 game is playable with AI on device. ✓ Verified 2026-03-15.
 
 ---
 
 ## Phase 7: Store Launch
 **Goal:** App live on Google Play.
 
-- [ ] Marathon mode UI (engine already implemented)
+> **Environment note:** Development uses **Expo Go SDK 55** for rapid iteration.
+> `expo-av` (ExponentAV) is not bundled in Expo Go — audio is a graceful no-op
+> during dev. Sound FX become active in production EAS builds where the native
+> module is compiled in via the `"plugins": ["expo-av"]` config in `app.json`.
+
+- [ ] Add sound asset files to `assets/sounds/` and enable `require()` stubs in `src/utils/soundManager.ts`
 - [ ] Google Play Store assets: icon (1024×1024), feature graphic, screenshots
 - [ ] App signing via EAS (`eas build --profile production` → AAB)
 - [ ] Play Store listing: description, content rating, privacy policy

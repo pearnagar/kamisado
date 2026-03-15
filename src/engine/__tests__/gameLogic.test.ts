@@ -22,7 +22,7 @@
  *   Row 7: Brown Green Red Yellow Pink Purple Blue Orange
  */
 
-import { Player, GameStatus, GameMode, KamisadoColor, BOARD_SIZE, BOARD_COLORS } from '../../constants/gameConstants';
+import { Player, GameStatus, GameMode, KamisadoColor, BOARD_SIZE, BOARD_COLORS, BoardVariant, BOARD_CONFIGS } from '../../constants/gameConstants';
 import type { GameState, BoardState } from '../gameState';
 import { getLegalMoves, getAvailablePieces } from '../moveValidator';
 import { makeMove, handleDeadlock } from '../moveLogic';
@@ -38,21 +38,19 @@ import { describe, test, expect } from '@jest/globals';
 const emptyBoard = (): null[][] =>
   Array.from({ length: BOARD_SIZE }, () => Array<null>(BOARD_SIZE).fill(null));
 
-/** Shallow-copies a board so tests can mutate one row safely. */
-const cloneBoard = (board: BoardState): (ReturnType<typeof emptyBoard>) => board.map(r => [...r]) as any;
-
 /** Minimal valid GameState for unit tests. */
 const makeState = (overrides: Partial<GameState> & { board: BoardState }): GameState => ({
-  turn:           Player.Black,
-  activeColor:    null,
-  selectedPiece:  null,
-  status:         GameStatus.Active,
-  isDeadlocked:   false,
+  turn:            Player.Black,
+  activeColor:     null,
+  selectedPiece:   null,
+  status:          GameStatus.Active,
+  isDeadlocked:    false,
   deadlockedPiece: null,
-  moveHistory:    [],
-  gameMode:       GameMode.Single,
-  matchScore:     { p1: 0, p2: 0 },
-  roundNumber:    1,
+  moveHistory:     [],
+  gameMode:        GameMode.Single,
+  matchScore:      { p1: 0, p2: 0 },
+  roundNumber:     1,
+  boardConfig:     BOARD_CONFIGS[BoardVariant.Standard],
   ...overrides,
 });
 

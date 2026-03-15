@@ -9,9 +9,12 @@
  *       opponent whose next forced color is the cell color UNDER the trapped piece.
  *   M8 (Loop / repetition loss): if a (board + turn) position recurs in the last
  *       HISTORY_LIMIT moves, the player who caused the loop immediately loses.
+ *
+ * All new GameState objects carry forward boardConfig from the input state so
+ * that size, colors, and rule constraints are preserved across the entire game.
  */
 
-import { Player, GameStatus, BOARD_COLORS, BOARD_SIZE, type KamisadoColor } from '../constants/gameConstants';
+import { Player, GameStatus, type KamisadoColor } from '../constants/gameConstants';
 import type { GameState, BoardState } from './gameState';
 import type { BoardPosition } from './moveValidator';
 import { isDeadlocked } from './moveValidator';
@@ -31,9 +34,13 @@ const HISTORY_LIMIT = 10;
 const opponent = (player: Player): Player =>
   player === Player.Black ? Player.White : Player.Black;
 
-/** Black wins by reaching row BOARD_SIZE-1; White wins by reaching row 0. */
-const isWinningMove = (player: Player, toRow: number): boolean =>
-  (player === Player.Black && toRow === BOARD_SIZE - 1) ||
+/**
+ * Black wins by reaching row (boardSize-1); White wins by reaching row 0.
+ * boardSize is read from gameState.boardConfig.size so this works for both
+ * the 8×8 and 10×10 variants.
+ */
+const isWinningMove = (player: Player, toRow: number, boardSize: number): boolean =>
+  (player === Player.Black && toRow === boardSize - 1) ||
   (player === Player.White && toRow === 0);
 
 /**
@@ -45,9 +52,9 @@ const findPiecePosition = (
   player: Player,
   color: KamisadoColor,
 ): BoardPosition | null => {
-  const { board } = gameState;
-  for (let row = 0; row < BOARD_SIZE; row++) {
-    for (let col = 0; col < BOARD_SIZE; col++) {
+  const { board, boardConfig } = gameState;
+  for (let row = 0; row < boardConfig.size; row++) {
+    for (let col = 0; col < boardConfig.size; col++) {
       const piece = board[row][col];
       if (piece !== null && piece.player === player && piece.color === color) {
         return { row, col };
@@ -61,16 +68,17 @@ const findPiecePosition = (
  * Produces a compact, unique string identifying the (board, turn) pair.
  * Used for M8 repetition detection.
  *
- * Format: {turnChar}{64 cells × 3 chars}
+ * Format: {turnChar}{size² cells × 3 chars}
  *   turnChar  : 'B' (Black to move) | 'W' (White to move)
  *   cell      : '...' (empty) | {playerChar}{colorSlice2}
  *     playerChar : 'b' | 'w'
- *     colorSlice2: first 2 chars of KamisadoColor enum string (all are unique)
+ *     colorSlice2: first 2 chars of KamisadoColor enum string
+ *                  (all 10 colors have unique 2-char prefixes: Or,Bl,Pu,Pi,Ye,Re,Gr,Br,Si,Go)
  */
-const computeStateHash = (board: BoardState, turn: Player): string => {
+const computeStateHash = (board: BoardState, turn: Player, boardSize: number): string => {
   let h = turn === Player.Black ? 'B' : 'W';
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
+  for (let r = 0; r < boardSize; r++) {
+    for (let c = 0; c < boardSize; c++) {
       const p = board[r][c];
       if (p === null) {
         h += '...';
@@ -101,7 +109,7 @@ const computeStateHash = (board: BoardState, turn: Player): string => {
  * activeColor is preserved as a safe fallback and a warning is emitted.
  */
 export const handleDeadlock = (gameState: GameState): GameState => {
-  const { turn, activeColor } = gameState;
+  const { turn, activeColor, boardConfig } = gameState;
 
   // A deadlock cannot occur before the first move (activeColor is null then).
   if (activeColor === null) return gameState;
@@ -124,10 +132,10 @@ export const handleDeadlock = (gameState: GameState): GameState => {
   }
 
   // M6: next forced color = color of the cell where the trapped piece sits.
-  const forfeitColor = BOARD_COLORS[blockedPiecePos.row][blockedPiecePos.col];
+  const forfeitColor = boardConfig.colors[blockedPiecePos.row][blockedPiecePos.col];
 
   const candidateState: GameState = {
-    ...gameState,                          // inherits moveHistory from caller
+    ...gameState,                          // inherits moveHistory & boardConfig from caller
     turn:            opponent(turn),       // revert to the player who just moved
     activeColor:     forfeitColor,         // M6: forced onto the cell color under the blocked piece
     selectedPiece:   null,
@@ -164,7 +172,7 @@ export const makeMove = (
   from: BoardPosition,
   to: BoardPosition,
 ): GameState => {
-  const { board, turn, activeColor } = gameState;
+  const { board, turn, activeColor, boardConfig } = gameState;
   const piece = board[from.row][from.col];
 
   // --- 0. Forced-color guard ---
@@ -188,11 +196,11 @@ export const makeMove = (
   });
 
   // --- 2. Derive next activeColor from the destination cell's board color ---
-  const nextActiveColor = BOARD_COLORS[to.row][to.col];
+  const nextActiveColor = boardConfig.colors[to.row][to.col];
   const nextTurn        = opponent(turn);
 
   // --- 3a. Update move history ---
-  const nextHash   = computeStateHash(newBoard as BoardState, nextTurn);
+  const nextHash   = computeStateHash(newBoard as BoardState, nextTurn, boardConfig.size);
   const newHistory = [
     ...gameState.moveHistory.slice(-(HISTORY_LIMIT - 1)),
     nextHash,
@@ -213,11 +221,12 @@ export const makeMove = (
       gameMode:        gameState.gameMode,
       matchScore:      gameState.matchScore,
       roundNumber:     gameState.roundNumber,
+      boardConfig,
     };
   }
 
-  // --- 4. Check win condition — delegate to the active scoring strategy ---
-  if (isWinningMove(turn, to.row)) {
+  // --- 4. Check win condition ---
+  if (isWinningMove(turn, to.row, boardConfig.size)) {
     const postMoveState: GameState = {
       board:           newBoard as GameState['board'],
       turn:            nextTurn,
@@ -230,6 +239,7 @@ export const makeMove = (
       gameMode:        gameState.gameMode,
       matchScore:      gameState.matchScore,
       roundNumber:     gameState.roundNumber,
+      boardConfig,
     };
     return getStrategy(gameState.gameMode).handleRoundEnd(postMoveState, turn);
   }
@@ -247,6 +257,7 @@ export const makeMove = (
     gameMode:        gameState.gameMode,
     matchScore:      gameState.matchScore,
     roundNumber:     gameState.roundNumber,
+    boardConfig,
   };
 
   // --- 6. Resolve forfeit (M6) immediately so the state is always actionable ---

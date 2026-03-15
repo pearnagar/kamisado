@@ -10,10 +10,9 @@ interface ScoreHeaderProps {
 
 /**
  * Displays a compact score bar above the board.
- * Only renders when a multi-round mode (Match / Marathon) is active.
+ * Only renders in Match mode; shows a placeholder spacer otherwise.
  *
  * p1 = White (Player1), p2 = Black (Player2).
- * In Marathon mode the unit is "pts"; in Match mode it is the raw win count.
  */
 export default function ScoreHeader({ gameMode, matchScore, roundNumber }: ScoreHeaderProps): React.JSX.Element {
   if (gameMode !== GameMode.Match) {
