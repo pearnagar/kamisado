@@ -403,19 +403,31 @@ export default function Board({
       <View style={[styles.clockRow, { width: boardWidth }]}>
         <ChessClock
           key={`w-${clockEpoch}-${gameState.roundNumber}`}
-          label="White"
+          label="WHITE"
           isActive={hasGameStarted && gameState.turn === Player.White && !isGameOver}
           initialSeconds={DEFAULT_CLOCK_SECONDS}
           onTimeOut={handleWhiteTimeout}
         />
         <ChessClock
           key={`b-${clockEpoch}-${gameState.roundNumber}`}
-          label="Black"
+          label="BLACK"
           isActive={hasGameStarted && gameState.turn === Player.Black && !isGameOver}
           initialSeconds={DEFAULT_CLOCK_SECONDS}
           onTimeOut={handleBlackTimeout}
         />
       </View>
+
+      {/* Turn status indicator */}
+      {!isGameOver && hasGameStarted && (
+        <Text style={styles.turnStatus}>
+          {isAiThinking
+            ? 'AI THINKING...'
+            : opponentMode === 'PvE'
+              ? gameState.turn === Player.White ? 'YOUR TURN' : ''
+              : gameState.turn === Player.White ? "WHITE'S TURN" : "BLACK'S TURN"
+          }
+        </Text>
+      )}
 
       {/* Board area */}
       <View style={{ width: boardWidth, height: boardWidth, position: 'relative' }}>
@@ -535,7 +547,7 @@ export default function Board({
                 ]}
               >
                 <Text style={[styles.quitButtonText, !canUndo && styles.quitButtonTextDisabled]}>
-                  Undo
+                  UNDO
                 </Text>
               </Pressable>
             );
@@ -544,7 +556,7 @@ export default function Board({
             onPress={() => navigation.goBack()}
             style={({ pressed }) => [styles.quitButton, pressed && styles.quitButtonPressed]}
           >
-            <Text style={styles.quitButtonText}>Forfeit / Quit</Text>
+            <Text style={styles.quitButtonText}>QUIT</Text>
           </Pressable>
         </View>
       )}
@@ -632,5 +644,13 @@ const styles = StyleSheet.create({
   bottomRow: {
     flexDirection: 'row',
     gap:           12,
+  },
+  turnStatus: {
+    color:         'rgba(255,255,255,0.38)',
+    fontSize:      10,
+    fontWeight:    '600',
+    letterSpacing: 2.5,
+    textAlign:     'center',
+    height:        14,
   },
 });
