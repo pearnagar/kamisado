@@ -202,6 +202,20 @@ export const findBestMove = (
 ): AiMove | null => {
   const available = getAvailablePieces(state);
 
+  // ---------------------------------------------------------------------------
+  // Greedy win check — if any move wins immediately, take it without searching.
+  // Catches back-rank wins and M8-triggered wins in one pass.
+  // ---------------------------------------------------------------------------
+  const aiWinStatus = aiPlayer === Player.Black ? GameStatus.WonPlayer2 : GameStatus.WonPlayer1;
+  for (const from of available) {
+    const moves = getLegalMoves(state.board, from.row, from.col, state.boardConfig);
+    for (const to of moves) {
+      if (makeMove(state, from, to).status === aiWinStatus) {
+        return { from, to };
+      }
+    }
+  }
+
   let bestScore = -Infinity;
   let candidates: AiMove[] = [];
 

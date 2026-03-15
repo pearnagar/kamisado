@@ -105,25 +105,21 @@
 - [x] `scoringLogic.ts` — `startNextRound` passes `state.boardConfig.variant` so a Mega match stays Mega
 - [x] `Board.tsx` — `boardVariant` prop; `CELL_SIZE = floor((screenWidth - 32) / boardSize)` via `useWindowDimensions`; AI depth capped at 4 for Mega (`MEGA_MAX_DEPTH`)
 - [x] `App.tsx` — `ToggleButton` component; "Standard (8×8)" / "Mega (10×10)" selector in `HomeScreen`; `boardVariant` threaded through navigation params
-- [x] All 64 existing Jest tests pass with no changes to test logic
+- [x] Greedy win check in `findBestMove` — returns winning move immediately, before minimax (`aiEngine.ts`)
+- [x] Undo history cleared on round boundary — `handleAnimationComplete` wipes stack when `roundNumber` advances (`Board.tsx`)
+- [x] **67/67 Jest unit tests** — run with `npm test`
 
 **Exit criteria:** A full 10×10 game is playable with AI on device. ✓ Verified 2026-03-15.
 
 ---
 
-## Phase 7: Store Launch
-**Goal:** App live on Google Play.
+## Phase 7: Home Screen Redesign
+**Goal:** A premium, polished landing experience.
 
-> **Environment note:** Development uses **Expo Go SDK 55** for rapid iteration.
-> `expo-av` (ExponentAV) is not bundled in Expo Go — audio is a graceful no-op
-> during dev. Sound FX become active in production EAS builds where the native
-> module is compiled in via the `"plugins": ["expo-av"]` config in `app.json`.
+- [ ] Modern UI layout for game mode selection (PvP / PvE)
+- [ ] Difficulty selector (Easy / Medium / Hard) and Variant selector (8×8 / 10×10) overhaul
+- [ ] High-quality background assets or gradients
+- [ ] Animated transitions from Home to Board
+- [ ] Consistent typography and button styles using NativeWind
 
-- [ ] Add sound asset files to `assets/sounds/` and enable `require()` stubs in `src/utils/soundManager.ts`
-- [ ] Google Play Store assets: icon (1024×1024), feature graphic, screenshots
-- [ ] App signing via EAS (`eas build --profile production` → AAB)
-- [ ] Play Store listing: description, content rating, privacy policy
-- [ ] `eas submit` pipeline configured
-- [ ] Internal test track → closed track → production rollout
-
-**Exit criteria:** App live on Google Play Store.
+**Exit criteria:** Home screen feels premium and transitions smoothly to the board.
