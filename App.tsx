@@ -1,5 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, StatusBar } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  StatusBar,
+  LayoutChangeEvent,
+} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -7,6 +15,9 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Board from './src/components/Board';
@@ -38,7 +49,10 @@ function DifficultyPill({
 }): React.JSX.Element {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.diffPill,
         active  && styles.diffPillActive,
@@ -53,7 +67,7 @@ function DifficultyPill({
 }
 
 // ---------------------------------------------------------------------------
-// ModeCard — animated scale on press
+// ModeCard — BlurView glassmorphism, horizontal layout, scale on press
 // ---------------------------------------------------------------------------
 function ModeCard({
   iconName,
@@ -77,35 +91,56 @@ function ModeCard({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
       onPressIn={() => { scale.value = withTiming(0.96, { duration: 90 }); }}
-      onPressOut={() => { scale.value = withTiming(1.0, { duration: 160 }); }}
+      onPressOut={() => { scale.value = withTiming(1.0, { duration: 170 }); }}
     >
+      {/* Outer Animated.View handles scale + border + clip */}
       <Animated.View style={[
-        styles.modeCard,
-        selected && styles.modeCardSelected,
+        styles.cardWrapper,
+        selected && styles.cardWrapperSelected,
         scaleStyle,
       ]}>
-        <Ionicons
-          name={iconName}
-          size={28}
-          color={selected ? '#FFFFFF' : 'rgba(255,255,255,0.45)'}
-          style={{ marginBottom: 6 }}
-        />
-        <Text style={[styles.modeCardTitle, selected && styles.modeCardTitleSelected]}>
-          {title}
-        </Text>
-        <Text style={styles.modeCardSubtitle}>{subtitle}</Text>
-        {children}
+        <BlurView intensity={22} tint="dark" style={styles.blurFill}>
+          {/* Subtle white tint so card reads on any background */}
+          <View style={[StyleSheet.absoluteFill, styles.cardTintOverlay,
+            selected && styles.cardTintOverlaySelected,
+          ]} />
+
+          {/* Horizontal content row */}
+          <View style={styles.cardRow}>
+            <View style={[styles.cardIconWrap, selected && styles.cardIconWrapSelected]}>
+              <Ionicons
+                name={iconName}
+                size={26}
+                color={selected ? '#FFFFFF' : 'rgba(255,255,255,0.5)'}
+              />
+            </View>
+            <View style={styles.cardTextBlock}>
+              <Text style={[styles.cardTitle, selected && styles.cardTitleSelected]}>
+                {title}
+              </Text>
+              <Text style={styles.cardSubtitle}>{subtitle}</Text>
+            </View>
+            {selected && (
+              <Ionicons name="checkmark-circle" size={18} color="rgba(255,255,255,0.55)" />
+            )}
+          </View>
+
+          {children}
+        </BlurView>
       </Animated.View>
     </Pressable>
   );
 }
 
 // ---------------------------------------------------------------------------
-// SegmentToggle
+// SlidingSegment — segment control with animated background highlight
 // ---------------------------------------------------------------------------
-function SegmentToggle({
+function SlidingSegment({
   options,
   value,
   onChange,
@@ -114,18 +149,40 @@ function SegmentToggle({
   value:    string;
   onChange: (v: string) => void;
 }): React.JSX.Element {
+  const [containerWidth, setContainerWidth] = useState(0);
+  const activeIndex  = options.findIndex(o => o.value === value);
+  const sliderX      = useSharedValue(0);
+  const optionWidth  = containerWidth > 0 ? containerWidth / options.length : 0;
+
+  useEffect(() => {
+    if (containerWidth > 0) {
+      sliderX.value = withTiming(activeIndex * optionWidth, { duration: 220 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, containerWidth]);
+
+  const sliderStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: sliderX.value }],
+  }));
+
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    setContainerWidth(e.nativeEvent.layout.width);
+  }, []);
+
   return (
-    <View style={styles.segmentWrap}>
-      {options.map((opt, i) => (
+    <View style={styles.segmentWrap} onLayout={onLayout}>
+      {/* Animated sliding highlight — rendered behind text */}
+      {optionWidth > 0 && (
+        <Animated.View style={[styles.segmentSlider, { width: optionWidth }, sliderStyle]} />
+      )}
+      {options.map(opt => (
         <Pressable
           key={opt.value}
-          onPress={() => onChange(opt.value)}
-          style={[
-            styles.segmentOption,
-            i === 0                  && styles.segmentFirst,
-            i === options.length - 1 && styles.segmentLast,
-            value === opt.value      && styles.segmentOptionActive,
-          ]}
+          onPress={() => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onChange(opt.value);
+          }}
+          style={styles.segmentOption}
         >
           <Text style={[styles.segmentText, value === opt.value && styles.segmentTextActive]}>
             {opt.label}
@@ -147,18 +204,22 @@ function HomeScreen({
   const [matchType,    setMatchType]    = useState<MatchType>('single');
   const [boardVariant, setBoardVariant] = useState<BoardVariant>('standard');
 
-  // Staggered entrance — 4 stages: header → card 1 → card 2 → footer
-  const op0 = useSharedValue(0); const y0 = useSharedValue(28);
-  const op1 = useSharedValue(0); const y1 = useSharedValue(28);
-  const op2 = useSharedValue(0); const y2 = useSharedValue(28);
-  const op3 = useSharedValue(0); const y3 = useSharedValue(28);
+  // Staggered entrance:
+  //   Header  — drops from y:-20 → 0
+  //   Card 1  — slides up from y:30 → 0, delay 100ms
+  //   Card 2  — slides up from y:30 → 0, delay 200ms
+  //   Footer  — slides up from y:30 → 0, delay 300ms
+  const op0 = useSharedValue(0); const y0 = useSharedValue(-20);
+  const op1 = useSharedValue(0); const y1 = useSharedValue(30);
+  const op2 = useSharedValue(0); const y2 = useSharedValue(30);
+  const op3 = useSharedValue(0); const y3 = useSharedValue(30);
 
   useEffect(() => {
-    const cfg = { duration: 480 };
-    op0.value = withTiming(1, cfg);              y0.value = withTiming(0, cfg);
-    op1.value = withDelay(130, withTiming(1, cfg)); y1.value = withDelay(130, withTiming(0, cfg));
-    op2.value = withDelay(230, withTiming(1, cfg)); y2.value = withDelay(230, withTiming(0, cfg));
-    op3.value = withDelay(350, withTiming(1, cfg)); y3.value = withDelay(350, withTiming(0, cfg));
+    const cfg = { duration: 500 };
+    op0.value = withTiming(1, cfg);                 y0.value = withTiming(0, cfg);
+    op1.value = withDelay(100, withTiming(1, cfg)); y1.value = withDelay(100, withTiming(0, cfg));
+    op2.value = withDelay(200, withTiming(1, cfg)); y2.value = withDelay(200, withTiming(0, cfg));
+    op3.value = withDelay(300, withTiming(1, cfg)); y3.value = withDelay(300, withTiming(0, cfg));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -175,17 +236,21 @@ function HomeScreen({
     <View style={styles.root}>
       <StatusBar translucent barStyle="light-content" backgroundColor="transparent" />
 
-      {/* Two-tone depth layer (gradient simulation) */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={{ flex: 1, backgroundColor: '#0F172A' }} />
-        <View style={{ flex: 1, backgroundColor: '#1E293B', opacity: 0.65 }} />
-      </View>
-      <View style={styles.bgGlow} pointerEvents="none" />
+      {/* True vertical gradient: #020617 → #0f172a */}
+      <LinearGradient
+        colors={['#020617', '#0f172a']}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+
+      {/* Top-center glow for depth */}
+      <View style={styles.topGlow} pointerEvents="none" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+
         {/* ── Header ── */}
         <Animated.View style={[styles.header, anim0]}>
           <Text style={styles.homeTitle}>KAMISADO</Text>
@@ -196,16 +261,19 @@ function HomeScreen({
         <Animated.View style={[styles.fullWidth, anim1]}>
           <ModeCard
             iconName="hardware-chip-outline"
-            title="VS COMPUTER"
-            subtitle="Challenge the AI dragon"
+            title="Master the AI Dragon"
+            subtitle="VS COMPUTER · Easy / Medium / Hard"
             selected={gameMode === 'pve'}
             onPress={() => setGameMode('pve')}
           >
-            <View style={styles.diffRow}>
-              <DifficultyPill label="EASY"   active={difficulty === 'easy'}   onPress={() => setDifficulty('easy')} />
-              <DifficultyPill label="MEDIUM" active={difficulty === 'medium'} onPress={() => setDifficulty('medium')} />
-              <DifficultyPill label="HARD"   active={difficulty === 'hard'}   onPress={() => setDifficulty('hard')} />
-            </View>
+            {/* Difficulty row visible only when PvE selected */}
+            {gameMode === 'pve' && (
+              <View style={styles.diffRow}>
+                <DifficultyPill label="EASY"   active={difficulty === 'easy'}   onPress={() => setDifficulty('easy')} />
+                <DifficultyPill label="MEDIUM" active={difficulty === 'medium'} onPress={() => setDifficulty('medium')} />
+                <DifficultyPill label="HARD"   active={difficulty === 'hard'}   onPress={() => setDifficulty('hard')} />
+              </View>
+            )}
           </ModeCard>
         </Animated.View>
 
@@ -213,8 +281,8 @@ function HomeScreen({
         <Animated.View style={[styles.fullWidth, anim2]}>
           <ModeCard
             iconName="people-outline"
-            title="LOCAL MULTIPLAYER"
-            subtitle="Two players, one device"
+            title="Challenge a Friend"
+            subtitle="LOCAL DUEL · Two players, one device"
             selected={gameMode === 'pvp'}
             onPress={() => setGameMode('pvp')}
           />
@@ -223,12 +291,11 @@ function HomeScreen({
         {/* ── Controls + footer ── */}
         <Animated.View style={[styles.fullWidth, styles.footerBlock, anim3]}>
 
-          {/* Game type */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>GAME TYPE</Text>
-            <SegmentToggle
+            <SlidingSegment
               options={[
-                { label: 'Classic Mode', value: 'single' },
+                { label: 'Classic Mode',    value: 'single' },
                 { label: 'Match (Best of 3)', value: 'match' },
               ]}
               value={matchType}
@@ -236,10 +303,9 @@ function HomeScreen({
             />
           </View>
 
-          {/* Board */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>BOARD</Text>
-            <SegmentToggle
+            <SlidingSegment
               options={[
                 { label: '8×8 Standard', value: 'standard' },
                 { label: '10×10 Mega',   value: 'mega' },
@@ -256,23 +322,24 @@ function HomeScreen({
 
           {/* Play CTA */}
           <Pressable
-            onPress={() =>
-              navigation.navigate('Game', { gameMode, difficulty, matchType, boardVariant })
-            }
+            onPress={() => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              navigation.navigate('Game', { gameMode, difficulty, matchType, boardVariant });
+            }}
             onPressIn={() => { playScale.value = withTiming(0.96, { duration: 90 }); }}
-            onPressOut={() => { playScale.value = withTiming(1.0, { duration: 160 }); }}
+            onPressOut={() => { playScale.value = withTiming(1.0, { duration: 170 }); }}
           >
             <Animated.View style={[styles.playButton, playScaleStyle]}>
               <Text style={styles.playButtonText}>▶  PLAY</Text>
             </Animated.View>
           </Pressable>
 
-          {/* How to Play link */}
+          {/* How to Play — underlined subtle link */}
           <Pressable
             onPress={() => navigation.navigate('Rules')}
             style={({ pressed }) => [styles.rulesLink, pressed && styles.rulesLinkPressed]}
           >
-            <Text style={styles.rulesLinkText}>How to Play</Text>
+            <Text style={styles.rulesLinkText}>HOW TO PLAY</Text>
           </Pressable>
 
         </Animated.View>
@@ -339,128 +406,155 @@ export default function App(): React.JSX.Element {
 const styles = StyleSheet.create({
   root: {
     flex:            1,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#020617',
   },
 
-  bgGlow: {
+  // Top-centre glow — radial-ish bleed of indigo light
+  topGlow: {
     position:        'absolute',
-    top:             -160,
+    top:             -200,
     alignSelf:       'center',
-    width:           480,
-    height:          480,
-    borderRadius:    240,
-    backgroundColor: 'rgba(99,102,241,0.06)',
+    width:           520,
+    height:          520,
+    borderRadius:    260,
+    backgroundColor: 'rgba(99,102,241,0.08)',
   },
 
   scrollContent: {
-    flexGrow:        1,
-    alignItems:      'center',
-    paddingVertical: 64,
+    flexGrow:          1,
+    alignItems:        'center',
+    paddingTop:        72,
+    paddingBottom:     56,
     paddingHorizontal: 20,
-    gap:             16,
+    gap:               14,
   },
 
   fullWidth: {
     width: '100%',
   },
 
-  // ── Header ──────────────────────────────────────────────────────────────
+  // ── Header ─────────────────────────────────────────────────────────────────
   header: {
     alignItems:   'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   homeTitle: {
     color:         '#FFFFFF',
-    fontSize:      40,
+    fontSize:      38,
     fontWeight:    '800',
-    letterSpacing: 8,
+    letterSpacing: 10,
     textAlign:     'center',
   },
   homeTitleSub: {
-    color:         'rgba(255,255,255,0.28)',
-    fontSize:      11,
+    color:         'rgba(255,255,255,0.25)',
+    fontSize:      10,
     fontWeight:    '300',
     letterSpacing: 5,
     textAlign:     'center',
-    marginTop:     6,
+    marginTop:     8,
   },
 
-  // ── Mode cards (glassmorphism) ───────────────────────────────────────────
-  modeCard: {
-    width:             '100%',
-    backgroundColor:   'rgba(255,255,255,0.05)',
-    borderWidth:       1,
-    borderColor:       'rgba(255,255,255,0.10)',
-    borderRadius:      24,
-    paddingVertical:   24,
-    paddingHorizontal: 20,
+  // ── Glassmorphism card ──────────────────────────────────────────────────────
+  cardWrapper: {
+    width:        '100%',
+    borderRadius: 32,
+    borderWidth:  1,
+    borderColor:  'rgba(255,255,255,0.10)',
+    overflow:     'hidden',          // clips BlurView to the rounded rect
+  },
+  cardWrapperSelected: {
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  blurFill: {
+    width: '100%',
+  },
+  cardTintOverlay: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  cardTintOverlaySelected: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+
+  // Horizontal content row inside the card
+  cardRow: {
+    flexDirection:     'row',
     alignItems:        'center',
-    gap:               4,
-    shadowColor:       '#6366F1',
-    shadowOffset:      { width: 0, height: 8 },
-    shadowOpacity:     0.20,
-    shadowRadius:      20,
-    elevation:         6,
+    paddingVertical:   26,
+    paddingHorizontal: 24,
+    gap:               16,
   },
-  modeCardSelected: {
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderColor:     'rgba(255,255,255,0.28)',
-    shadowOpacity:   0.35,
-    elevation:       10,
+  cardIconWrap: {
+    width:           52,
+    height:          52,
+    borderRadius:    16,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth:     1,
+    borderColor:     'rgba(255,255,255,0.10)',
+    alignItems:      'center',
+    justifyContent:  'center',
   },
-  modeCardTitle: {
-    color:         'rgba(255,255,255,0.65)',
-    fontSize:      17,
-    fontWeight:    '700',
-    letterSpacing: 1.5,
-    textAlign:     'center',
+  cardIconWrapSelected: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderColor:     'rgba(255,255,255,0.22)',
   },
-  modeCardTitleSelected: {
+  cardTextBlock: {
+    flex: 1,
+    gap:  3,
+  },
+  cardTitle: {
+    color:      'rgba(255,255,255,0.60)',
+    fontSize:   17,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  cardTitleSelected: {
     color: '#FFFFFF',
   },
-  modeCardSubtitle: {
-    color:         'rgba(255,255,255,0.38)',
+  cardSubtitle: {
+    color:         'rgba(255,255,255,0.35)',
     fontSize:      12,
     fontWeight:    '300',
-    letterSpacing: 0.5,
-    textAlign:     'center',
+    letterSpacing: 0.4,
+    lineHeight:    17,
   },
 
-  // ── Difficulty pills ─────────────────────────────────────────────────────
+  // Difficulty pills (inside PvE card)
   diffRow: {
-    flexDirection: 'row',
-    gap:           8,
-    marginTop:     14,
+    flexDirection:   'row',
+    gap:             8,
+    paddingBottom:   22,
+    paddingTop:      2,
+    justifyContent:  'center',
   },
   diffPill: {
-    paddingVertical:   6,
-    paddingHorizontal: 14,
+    paddingVertical:   7,
+    paddingHorizontal: 16,
     borderRadius:      20,
     borderWidth:       1,
-    borderColor:       'rgba(255,255,255,0.14)',
+    borderColor:       'rgba(255,255,255,0.13)',
   },
   diffPillActive: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderColor:     'rgba(255,255,255,0.42)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor:     'rgba(255,255,255,0.38)',
   },
   diffPillPressed: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
   diffPillText: {
-    color:         'rgba(255,255,255,0.38)',
+    color:         'rgba(255,255,255,0.35)',
     fontSize:      11,
     fontWeight:    '600',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
   diffPillTextActive: {
     color: '#FFFFFF',
   },
 
-  // ── Controls footer ──────────────────────────────────────────────────────
+  // ── Footer controls ─────────────────────────────────────────────────────────
   footerBlock: {
     alignItems: 'center',
-    gap:        16,
-    marginTop:  4,
+    gap:        14,
+    marginTop:  6,
   },
   section: {
     width:      '100%',
@@ -468,34 +562,38 @@ const styles = StyleSheet.create({
     gap:        8,
   },
   sectionLabel: {
-    color:         'rgba(255,255,255,0.28)',
+    color:         'rgba(255,255,255,0.25)',
     fontSize:      10,
     fontWeight:    '600',
     letterSpacing: 2.5,
   },
 
-  // ── Segment toggle ────────────────────────────────────────────────────────
+  // ── Sliding segment control ──────────────────────────────────────────────────
   segmentWrap: {
-    flexDirection: 'row',
-    width:         '100%',
-    borderRadius:  14,
-    borderWidth:   1,
-    borderColor:   'rgba(255,255,255,0.10)',
-    overflow:      'hidden',
+    flexDirection:   'row',
+    width:           '100%',
+    height:          44,
+    borderRadius:    14,
+    borderWidth:     1,
+    borderColor:     'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    overflow:        'hidden',
+    position:        'relative',
+  },
+  // Absolute sliding pill behind the text
+  segmentSlider: {
+    position:        'absolute',
+    top:             4,
+    bottom:          4,
+    left:            4,
+    borderRadius:    10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   segmentOption: {
-    flex:            1,
-    paddingVertical: 11,
-    alignItems:      'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-  },
-  segmentFirst: {
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255,255,255,0.08)',
-  },
-  segmentLast: {},
-  segmentOptionActive: {
-    backgroundColor: 'rgba(255,255,255,0.11)',
+    flex:           1,
+    alignItems:     'center',
+    justifyContent: 'center',
+    zIndex:         1,              // renders above the slider
   },
   segmentText: {
     color:         'rgba(255,255,255,0.38)',
@@ -510,7 +608,7 @@ const styles = StyleSheet.create({
   },
 
   megaNote: {
-    color:         'rgba(255,255,255,0.28)',
+    color:         'rgba(255,255,255,0.25)',
     fontSize:      11,
     fontWeight:    '300',
     letterSpacing: 0.3,
@@ -518,7 +616,7 @@ const styles = StyleSheet.create({
     fontStyle:     'italic',
   },
 
-  // ── Play button ───────────────────────────────────────────────────────────
+  // ── Play button ──────────────────────────────────────────────────────────────
   playButton: {
     width:           '100%',
     paddingVertical: 18,
@@ -526,33 +624,30 @@ const styles = StyleSheet.create({
     borderRadius:    20,
     alignItems:      'center',
     marginTop:       4,
-    shadowColor:     '#FFFFFF',
-    shadowOffset:    { width: 0, height: 4 },
-    shadowOpacity:   0.15,
-    shadowRadius:    12,
-    elevation:       8,
   },
   playButtonText: {
-    color:         '#0F172A',
-    fontSize:      15,
+    color:         '#020617',
+    fontSize:      14,
     fontWeight:    '800',
-    letterSpacing: 3,
+    letterSpacing: 4,
   },
 
-  // ── Rules link ────────────────────────────────────────────────────────────
+  // ── How to Play link ─────────────────────────────────────────────────────────
   rulesLink: {
     paddingVertical:   8,
-    paddingHorizontal: 20,
-    borderRadius:      12,
+    paddingHorizontal: 16,
+    borderRadius:      8,
   },
   rulesLinkPressed: {
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
   rulesLinkText: {
-    color:         'rgba(255,255,255,0.30)',
-    fontSize:      12,
-    fontWeight:    '400',
-    letterSpacing: 1,
-    textAlign:     'center',
+    color:                'rgba(255,255,255,0.28)',
+    fontSize:             11,
+    fontWeight:           '400',
+    letterSpacing:        2,
+    textDecorationLine:   'underline',
+    textDecorationColor:  'rgba(255,255,255,0.15)',
+    textAlign:            'center',
   },
 });
