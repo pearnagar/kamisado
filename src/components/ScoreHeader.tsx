@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     width:          352,   // 8 cells × 44px — matches boardWidth
   },
   score: {
-    color:         'rgba(255,255,255,0.82)',
+    color:         '#0F172A',
     fontSize:      13,
     fontWeight:    '600',
     letterSpacing: 0.2,
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   round: {
-    color:         'rgba(255,255,255,0.45)',
+    color:         '#94A3B8',
     fontSize:      11,
     fontWeight:    '500',
     letterSpacing: 0.4,

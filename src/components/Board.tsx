@@ -418,16 +418,20 @@ export default function Board({
       </View>
 
       {/* Turn status indicator */}
-      {!isGameOver && hasGameStarted && (
-        <Text style={styles.turnStatus}>
-          {isAiThinking
-            ? 'AI THINKING...'
-            : opponentMode === 'PvE'
-              ? gameState.turn === Player.White ? 'YOUR TURN' : ''
-              : gameState.turn === Player.White ? "WHITE'S TURN" : "BLACK'S TURN"
-          }
-        </Text>
-      )}
+      {!isGameOver && hasGameStarted && (() => {
+        const label = isAiThinking
+          ? 'AI THINKING...'
+          : opponentMode === 'PvE'
+            ? gameState.turn === Player.White ? 'YOUR TURN' : ''
+            : gameState.turn === Player.White ? "WHITE'S TURN" : "BLACK'S TURN";
+        return label ? (
+          <View style={styles.turnStatusCard}>
+            <Text style={styles.turnStatus}>{label}</Text>
+          </View>
+        ) : (
+          <View style={styles.turnStatusSpacer} />
+        );
+      })()}
 
       {/* Board area */}
       <View style={{ width: boardWidth, height: boardWidth, position: 'relative' }}>
@@ -592,7 +596,7 @@ function LegalMoveDot({
           width:        dotSize,
           height:       dotSize,
           borderRadius: 999,
-          backgroundColor: 'rgba(255,255,255,0.75)',
+          backgroundColor: 'rgba(255,255,255,0.82)',
         },
         animatedStyle,
       ]}
@@ -602,8 +606,11 @@ function LegalMoveDot({
 
 const styles = StyleSheet.create({
   wrapper: {
-    alignItems: 'center',
-    gap: 14,
+    alignItems:      'center',
+    gap:             14,
+    backgroundColor: 'rgba(255,255,255,0.80)',
+    borderRadius:    16,
+    padding:         8,
   },
   clockRow: {
     flexDirection:  'row',
@@ -612,45 +619,57 @@ const styles = StyleSheet.create({
   lastMoveOverlay: {
     position:        'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.07)',
   },
   forcedPieceWrapper: {
     borderRadius: 999,
     borderWidth:  3,
-    borderColor:  '#FFFFFF',
+    borderColor:  '#0F172A',
   },
   quitButton: {
     paddingVertical:   8,
     paddingHorizontal: 24,
     borderRadius:      20,
     borderWidth:       1,
-    borderColor:       'rgba(255,255,255,0.2)',
+    borderColor:       '#E2E8F0',
+    backgroundColor:   '#FFFFFF',
   },
   quitButtonPressed: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#F1F5F9',
   },
   quitButtonText: {
-    color:         'rgba(255,255,255,0.45)',
+    color:         '#64748B',
     fontSize:      13,
     fontWeight:    '500',
     letterSpacing: 0.2,
   },
   quitButtonDisabled: {
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor:     '#F1F5F9',
+    backgroundColor: '#F8FAFC',
   },
   quitButtonTextDisabled: {
-    color: 'rgba(255,255,255,0.2)',
+    color: '#CBD5E1',
   },
   bottomRow: {
     flexDirection: 'row',
     gap:           12,
   },
+  turnStatusCard: {
+    paddingVertical:   6,
+    paddingHorizontal: 16,
+    borderRadius:      20,
+    borderWidth:       1,
+    borderColor:       'rgba(251,191,36,0.45)',
+    backgroundColor:   '#FFFFFF',
+  },
+  turnStatusSpacer: {
+    height: 30,
+  },
   turnStatus: {
-    color:         'rgba(255,255,255,0.38)',
+    color:         '#0F172A',
     fontSize:      10,
-    fontWeight:    '600',
+    fontWeight:    '700',
     letterSpacing: 2.5,
     textAlign:     'center',
-    height:        14,
   },
 });

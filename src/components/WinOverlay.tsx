@@ -91,15 +91,15 @@ export default function WinOverlay({ status, gameMode, matchScore, onReset, onGo
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.78)',
+    backgroundColor: 'rgba(248,250,252,0.94)',
     justifyContent:  'center',
     alignItems:      'center',
     gap:             20,
   },
   title: {
-    color:         '#FFFFFF',
+    color:         '#0F172A',
     fontSize:      28,
-    fontWeight:    '700',
+    fontWeight:    '800',
     letterSpacing: 1,
   },
   scoreRow: {
@@ -108,12 +108,12 @@ const styles = StyleSheet.create({
     gap:            10,
   },
   scoreLabel: {
-    color:      'rgba(255,255,255,0.5)',
+    color:      '#64748B',
     fontSize:   13,
     fontWeight: '500',
   },
   scoreLine: {
-    color:         '#FFFFFF',
+    color:         '#0F172A',
     fontSize:      22,
     fontWeight:    '700',
     letterSpacing: 1,
@@ -121,14 +121,14 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical:   14,
     paddingHorizontal: 40,
-    backgroundColor:   '#FFFFFF',
-    borderRadius:      12,
+    backgroundColor:   '#0F172A',
+    borderRadius:      16,
   },
   buttonPressed: {
-    backgroundColor: 'rgba(255,255,255,0.75)',
+    backgroundColor: '#1E293B',
   },
   buttonText: {
-    color:         '#0F172A',
+    color:         '#FFFFFF',
     fontSize:      16,
     fontWeight:    '700',
     letterSpacing: 0.5,
@@ -136,15 +136,16 @@ const styles = StyleSheet.create({
   menuButton: {
     paddingVertical:   10,
     paddingHorizontal: 32,
-    borderRadius:      12,
+    borderRadius:      16,
     borderWidth:       1,
-    borderColor:       'rgba(255,255,255,0.35)',
+    borderColor:       '#E2E8F0',
+    backgroundColor:   '#FFFFFF',
   },
   menuButtonPressed: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#F1F5F9',
   },
   menuButtonText: {
-    color:         'rgba(255,255,255,0.7)',
+    color:         '#64748B',
     fontSize:      14,
     fontWeight:    '600',
     letterSpacing: 0.3,

@@ -14,27 +14,27 @@ const RULES: RuleItem[] = [
   {
     icon:  'arrow-forward-outline',
     title: 'Movement',
-    body:  'Pieces move forward only — straight or diagonal. No jumping, no captures.',
+    body:  'Pieces advance forward only — straight or diagonally. No jumping over pieces, no captures.',
   },
   {
     icon:  'color-palette-outline',
-    title: 'The Lock Mechanic',
-    body:  'When your piece lands on a colored cell, your opponent must move the piece matching that color. This chain reaction is the heart of Kamisado.',
+    title: 'The Color Lock',
+    body:  'When your piece lands on a colored square, your opponent must move the piece that matches that color. This forced chain reaction is the strategic core of Kamisado.',
   },
   {
     icon:  'trophy-outline',
-    title: 'Win Condition',
-    body:  "Land any piece on the opponent\u2019s back rank to win the round.",
+    title: 'Victory Condition',
+    body:  "Advance any of your pieces onto the opponent's back rank to win the round.",
   },
   {
     icon:  'refresh-outline',
     title: 'Rule M6 — Forfeit',
-    body:  'If the forced piece has no legal moves, that player forfeits their turn. The new forced color is the cell color under the trapped piece.',
+    body:  'If the forced piece has no legal moves, that player forfeits their turn. The forced color resets to the square currently occupied by the trapped piece.',
   },
   {
     icon:  'ban-outline',
-    title: 'Rule M8 — Loop Loss',
-    body:  'Causing the same board position to repeat within the last 10 moves results in an immediate loss.',
+    title: 'Rule M8 — Repetition Loss',
+    body:  'If you cause the same board position to repeat within the last 10 moves, you immediately lose the round.',
   },
 ];
 
@@ -42,11 +42,11 @@ export default function RulesScreen(): React.JSX.Element {
   const navigation = useNavigation();
 
   const opacity    = useSharedValue(0);
-  const translateY = useSharedValue(24);
+  const translateY = useSharedValue(20);
 
   useEffect(() => {
-    opacity.value    = withTiming(1, { duration: 400 });
-    translateY.value = withTiming(0, { duration: 400 });
+    opacity.value    = withTiming(1, { duration: 450 });
+    translateY.value = withTiming(0, { duration: 450 });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -57,35 +57,32 @@ export default function RulesScreen(): React.JSX.Element {
 
   return (
     <View style={styles.root}>
-      <StatusBar translucent barStyle="light-content" backgroundColor="transparent" />
+      <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View style={animatedStyle}>
+        <Animated.View style={[styles.content, animatedStyle]}>
 
           <Text style={styles.title}>GAME RULES</Text>
-          <Text style={styles.subtitle}>& STRATEGY GUIDE</Text>
+          <Text style={styles.subtitle}>STRATEGY GUIDE</Text>
 
           {RULES.map(rule => (
             <View key={rule.title} style={styles.ruleCard}>
-              <Ionicons
-                name={rule.icon}
-                size={22}
-                color="rgba(255,255,255,0.55)"
-                style={{ marginBottom: 8 }}
-              />
+              <View style={styles.ruleIconWrap}>
+                <Ionicons name={rule.icon} size={20} color="#94A3B8" />
+              </View>
               <Text style={styles.ruleTitle}>{rule.title}</Text>
               <Text style={styles.ruleBody}>{rule.body}</Text>
             </View>
           ))}
 
           <View style={styles.strategyCard}>
-            <Text style={styles.strategyHeading}>STRATEGY TIP</Text>
+            <Text style={styles.strategyHeading}>STRATEGIC INSIGHT</Text>
             <Text style={styles.strategyBody}>
-              Think several moves ahead — the color you land on dictates your
-              opponent&apos;s next piece. Force them onto a color that benefits you,
-              not them.
+              Plan several moves ahead. The color you land on determines which
+              piece your opponent is forced to move. Control the color chain —
+              direct their pieces to squares that serve your advance, not theirs.
             </Text>
           </View>
 
@@ -93,7 +90,7 @@ export default function RulesScreen(): React.JSX.Element {
             onPress={() => navigation.goBack()}
             style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
           >
-            <Ionicons name="arrow-back-outline" size={16} color="rgba(255,255,255,0.5)" />
+            <Ionicons name="arrow-back-outline" size={16} color="#94A3B8" />
             <Text style={styles.backButtonText}>Back</Text>
           </Pressable>
 
@@ -106,64 +103,77 @@ export default function RulesScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   root: {
     flex:            1,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#F8FAFC',
   },
   scrollContent: {
     flexGrow:          1,
     paddingHorizontal: 20,
     paddingVertical:   64,
-    alignItems:        'center',
-    gap:               12,
+  },
+  content: {
+    alignItems: 'center',
+    gap:        12,
   },
 
   title: {
-    color:         '#FFFFFF',
+    color:         '#0F172A',
     fontSize:      28,
-    fontWeight:    '800',
+    fontWeight:    '900',
     letterSpacing: 6,
     textAlign:     'center',
   },
   subtitle: {
-    color:         'rgba(255,255,255,0.28)',
+    color:         '#94A3B8',
     fontSize:      11,
-    fontWeight:    '300',
-    letterSpacing: 4,
+    fontWeight:    '400',
+    letterSpacing: 5,
     textAlign:     'center',
     marginBottom:  16,
   },
 
   ruleCard: {
     width:             '100%',
-    backgroundColor:   'rgba(255,255,255,0.05)',
+    backgroundColor:   '#FFFFFF',
     borderWidth:       1,
-    borderColor:       'rgba(255,255,255,0.09)',
+    borderColor:       'rgba(251,191,36,0.25)',
     borderRadius:      20,
     paddingVertical:   20,
     paddingHorizontal: 20,
     alignItems:        'center',
-    gap:               4,
+    gap:               6,
+  },
+  ruleIconWrap: {
+    width:           40,
+    height:          40,
+    borderRadius:    12,
+    backgroundColor: '#F1F5F9',
+    borderWidth:     1,
+    borderColor:     '#E2E8F0',
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    4,
   },
   ruleTitle: {
-    color:         '#FFFFFF',
+    color:         '#0F172A',
     fontSize:      14,
     fontWeight:    '700',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
     textAlign:     'center',
   },
   ruleBody: {
-    color:      'rgba(255,255,255,0.48)',
+    color:      '#64748B',
     fontSize:   13,
-    fontWeight: '300',
-    lineHeight: 20,
+    fontWeight: '400',
+    lineHeight: 21,
     textAlign:  'center',
-    marginTop:  4,
+    marginTop:  2,
   },
 
   strategyCard: {
     width:             '100%',
-    backgroundColor:   'rgba(99,102,241,0.10)',
+    backgroundColor:   '#FFFBEB',
     borderWidth:       1,
-    borderColor:       'rgba(99,102,241,0.25)',
+    borderColor:       'rgba(251,191,36,0.45)',
     borderRadius:      20,
     paddingVertical:   20,
     paddingHorizontal: 20,
@@ -172,35 +182,35 @@ const styles = StyleSheet.create({
     marginTop:         4,
   },
   strategyHeading: {
-    color:         'rgba(165,180,252,0.9)',
-    fontSize:      11,
+    color:         '#92400E',
+    fontSize:      10,
     fontWeight:    '700',
     letterSpacing: 2.5,
   },
   strategyBody: {
-    color:      'rgba(199,210,254,0.65)',
+    color:      '#78350F',
     fontSize:   13,
-    fontWeight: '300',
-    lineHeight: 20,
+    fontWeight: '400',
+    lineHeight: 21,
     textAlign:  'center',
   },
 
   backButton: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    gap:             6,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               6,
     paddingVertical:   10,
     paddingHorizontal: 20,
     borderRadius:      12,
     marginTop:         8,
   },
   backButtonPressed: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#F1F5F9',
   },
   backButtonText: {
-    color:         'rgba(255,255,255,0.45)',
+    color:         '#94A3B8',
     fontSize:      13,
-    fontWeight:    '400',
+    fontWeight:    '500',
     letterSpacing: 0.5,
   },
 });

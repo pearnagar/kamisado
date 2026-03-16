@@ -16,7 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
+import DragonWatermark from './src/components/DragonWatermark';
 import * as Haptics from 'expo-haptics';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -69,6 +69,12 @@ function DifficultyPill({
 // ---------------------------------------------------------------------------
 // ModeCard — BlurView glassmorphism, horizontal layout, scale on press
 // ---------------------------------------------------------------------------
+interface IconTint {
+  bg:     string;
+  border: string;
+  color:  string;
+}
+
 function ModeCard({
   iconName,
   title,
@@ -76,6 +82,7 @@ function ModeCard({
   selected,
   onPress,
   children,
+  iconTint,
 }: {
   iconName:  React.ComponentProps<typeof Ionicons>['name'];
   title:     string;
@@ -83,6 +90,7 @@ function ModeCard({
   selected:  boolean;
   onPress:   () => void;
   children?: React.ReactNode;
+  iconTint?: IconTint;
 }): React.JSX.Element {
   const scale = useSharedValue(1);
   const scaleStyle = useAnimatedStyle(() => ({
@@ -98,25 +106,22 @@ function ModeCard({
       onPressIn={() => { scale.value = withTiming(0.96, { duration: 90 }); }}
       onPressOut={() => { scale.value = withTiming(1.0, { duration: 170 }); }}
     >
-      {/* Outer Animated.View handles scale + border + clip */}
       <Animated.View style={[
         styles.cardWrapper,
         selected && styles.cardWrapperSelected,
         scaleStyle,
       ]}>
-        <BlurView intensity={22} tint="dark" style={styles.blurFill}>
-          {/* Subtle white tint so card reads on any background */}
-          <View style={[StyleSheet.absoluteFill, styles.cardTintOverlay,
-            selected && styles.cardTintOverlaySelected,
-          ]} />
-
-          {/* Horizontal content row */}
+        <BlurView intensity={15} tint="light" style={styles.blurFill}>
           <View style={styles.cardRow}>
-            <View style={[styles.cardIconWrap, selected && styles.cardIconWrapSelected]}>
+            <View style={[
+              styles.cardIconWrap,
+              selected && styles.cardIconWrapSelected,
+              !selected && iconTint != null && { backgroundColor: iconTint.bg, borderColor: iconTint.border },
+            ]}>
               <Ionicons
                 name={iconName}
                 size={26}
-                color={selected ? '#FFFFFF' : 'rgba(255,255,255,0.5)'}
+                color={selected ? '#0F172A' : (iconTint?.color ?? '#94A3B8')}
               />
             </View>
             <View style={styles.cardTextBlock}>
@@ -126,7 +131,7 @@ function ModeCard({
               <Text style={styles.cardSubtitle}>{subtitle}</Text>
             </View>
             {selected && (
-              <Ionicons name="checkmark-circle" size={18} color="rgba(255,255,255,0.55)" />
+              <Ionicons name="checkmark-circle" size={18} color="rgba(15,23,42,0.30)" />
             )}
           </View>
 
@@ -234,19 +239,11 @@ function HomeScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar translucent barStyle="light-content" backgroundColor="transparent" />
-
-      {/* True vertical gradient: #020617 → #0f172a */}
-      <LinearGradient
-        colors={['#020617', '#0f172a']}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-
-      {/* Top-center glow for depth */}
-      <View style={styles.topGlow} pointerEvents="none" />
+      <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
+      <DragonWatermark />
 
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -254,7 +251,7 @@ function HomeScreen({
         {/* ── Header ── */}
         <Animated.View style={[styles.header, anim0]}>
           <Text style={styles.homeTitle}>KAMISADO</Text>
-          <Text style={styles.homeTitleSub}>DRAGON STRATEGY</Text>
+          <Text style={styles.homeTitleSub}>STRATEGIC DRAGON CHESS</Text>
         </Animated.View>
 
         {/* ── PvE Card ── */}
@@ -265,6 +262,7 @@ function HomeScreen({
             subtitle="VS COMPUTER · Easy / Medium / Hard"
             selected={gameMode === 'pve'}
             onPress={() => setGameMode('pve')}
+            iconTint={{ bg: 'rgba(220,38,38,0.07)', border: 'rgba(220,38,38,0.18)', color: '#DC2626' }}
           >
             {/* Difficulty row visible only when PvE selected */}
             {gameMode === 'pve' && (
@@ -285,6 +283,7 @@ function HomeScreen({
             subtitle="LOCAL DUEL · Two players, one device"
             selected={gameMode === 'pvp'}
             onPress={() => setGameMode('pvp')}
+            iconTint={{ bg: 'rgba(99,102,241,0.07)', border: 'rgba(99,102,241,0.18)', color: '#6366F1' }}
           />
         </Animated.View>
 
@@ -326,11 +325,11 @@ function HomeScreen({
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               navigation.navigate('Game', { gameMode, difficulty, matchType, boardVariant });
             }}
-            onPressIn={() => { playScale.value = withTiming(0.96, { duration: 90 }); }}
-            onPressOut={() => { playScale.value = withTiming(1.0, { duration: 170 }); }}
+            onPressIn={() => { playScale.value = withTiming(0.97, { duration: 80 }); }}
+            onPressOut={() => { playScale.value = withTiming(1.0, { duration: 160 }); }}
           >
             <Animated.View style={[styles.playButton, playScaleStyle]}>
-              <Text style={styles.playButtonText}>▶  PLAY</Text>
+              <Text style={styles.playButtonText}>PLAY</Text>
             </Animated.View>
           </Pressable>
 
@@ -372,7 +371,8 @@ function GameScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar translucent barStyle="light-content" backgroundColor="transparent" />
+      <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
+      <DragonWatermark />
       <StatusBanner visible={showBanner} message={bannerMessage} />
       <Board
         onDeadlock={handleDeadlock}
@@ -391,7 +391,7 @@ function GameScreen({
 export default function App(): React.JSX.Element {
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAFC' } }}>
         <Stack.Screen name="Home"  component={HomeScreen} />
         <Stack.Screen name="Game"  component={GameScreen} />
         <Stack.Screen name="Rules" component={RulesScreen} />
@@ -406,20 +406,12 @@ export default function App(): React.JSX.Element {
 const styles = StyleSheet.create({
   root: {
     flex:            1,
-    backgroundColor: '#020617',
+    backgroundColor: '#FFFFFF',
   },
 
-  // Top-centre glow — radial-ish bleed of indigo light
-  topGlow: {
-    position:        'absolute',
-    top:             -200,
-    alignSelf:       'center',
-    width:           520,
-    height:          520,
-    borderRadius:    260,
-    backgroundColor: 'rgba(99,102,241,0.08)',
+  scrollView: {
+    backgroundColor: 'transparent',
   },
-
   scrollContent: {
     flexGrow:          1,
     alignItems:        'center',
@@ -427,6 +419,7 @@ const styles = StyleSheet.create({
     paddingBottom:     56,
     paddingHorizontal: 20,
     gap:               14,
+    backgroundColor:   'transparent',
   },
 
   fullWidth: {
@@ -435,44 +428,46 @@ const styles = StyleSheet.create({
 
   // ── Header ─────────────────────────────────────────────────────────────────
   header: {
-    alignItems:   'center',
-    marginBottom: 10,
+    alignItems:     'center',
+    justifyContent: 'center',
+    marginBottom:   28,
   },
   homeTitle: {
-    color:         '#FFFFFF',
-    fontSize:      38,
-    fontWeight:    '800',
-    letterSpacing: 10,
+    color:         '#0F172A',
+    fontSize:      48,
+    fontWeight:    '900',
+    letterSpacing: 14,
     textAlign:     'center',
   },
   homeTitleSub: {
-    color:         'rgba(255,255,255,0.25)',
+    color:         '#94A3B8',
     fontSize:      10,
     fontWeight:    '300',
-    letterSpacing: 5,
+    letterSpacing: 8,
     textAlign:     'center',
-    marginTop:     8,
+    marginTop:     4,
   },
 
   // ── Glassmorphism card ──────────────────────────────────────────────────────
   cardWrapper: {
-    width:        '100%',
-    borderRadius: 32,
-    borderWidth:  1,
-    borderColor:  'rgba(255,255,255,0.10)',
-    overflow:     'hidden',          // clips BlurView to the rounded rect
+    width:           '100%',
+    borderRadius:    38,
+    borderWidth:     0.5,
+    borderColor:     'rgba(251,191,36,0.15)',
+    backgroundColor: '#FFFFFF',
+    overflow:        'hidden',
+    // Soft lifted shadow
+    shadowColor:     '#000000',
+    shadowOffset:    { width: 0, height: 4 },
+    shadowOpacity:   0.04,
+    shadowRadius:    12,
+    elevation:       2,
   },
   cardWrapperSelected: {
-    borderColor: 'rgba(255,255,255,0.28)',
+    borderColor: 'rgba(251,191,36,0.45)',
   },
   blurFill: {
     width: '100%',
-  },
-  cardTintOverlay: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-  },
-  cardTintOverlaySelected: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
   },
 
   // Horizontal content row inside the card
@@ -487,31 +482,31 @@ const styles = StyleSheet.create({
     width:           52,
     height:          52,
     borderRadius:    16,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: '#F1F5F9',
     borderWidth:     1,
-    borderColor:     'rgba(255,255,255,0.10)',
+    borderColor:     '#E2E8F0',
     alignItems:      'center',
     justifyContent:  'center',
   },
   cardIconWrapSelected: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderColor:     'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(251,191,36,0.12)',
+    borderColor:     'rgba(251,191,36,0.35)',
   },
   cardTextBlock: {
     flex: 1,
     gap:  3,
   },
   cardTitle: {
-    color:      'rgba(255,255,255,0.60)',
+    color:      '#0F172A',
     fontSize:   17,
     fontWeight: '600',
     lineHeight: 22,
   },
   cardTitleSelected: {
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   cardSubtitle: {
-    color:         'rgba(255,255,255,0.35)',
+    color:         '#64748B',
     fontSize:      12,
     fontWeight:    '300',
     letterSpacing: 0.4,
@@ -531,23 +526,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius:      20,
     borderWidth:       1,
-    borderColor:       'rgba(255,255,255,0.13)',
+    borderColor:       '#E2E8F0',
   },
   diffPillActive: {
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderColor:     'rgba(255,255,255,0.38)',
+    backgroundColor: 'rgba(251,191,36,0.08)',
+    borderColor:     'rgba(251,191,36,0.55)',
   },
   diffPillPressed: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: '#F8FAFC',
   },
   diffPillText: {
-    color:         'rgba(255,255,255,0.35)',
+    color:         '#94A3B8',
     fontSize:      11,
     fontWeight:    '600',
     letterSpacing: 1.2,
   },
   diffPillTextActive: {
-    color: '#FFFFFF',
+    color: '#92400E',
   },
 
   // ── Footer controls ─────────────────────────────────────────────────────────
@@ -562,7 +557,7 @@ const styles = StyleSheet.create({
     gap:        8,
   },
   sectionLabel: {
-    color:         'rgba(255,255,255,0.25)',
+    color:         '#94A3B8',
     fontSize:      10,
     fontWeight:    '600',
     letterSpacing: 2.5,
@@ -575,8 +570,8 @@ const styles = StyleSheet.create({
     height:          44,
     borderRadius:    14,
     borderWidth:     1,
-    borderColor:     'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor:     '#E2E8F0',
+    backgroundColor: '#F1F5F9',
     overflow:        'hidden',
     position:        'relative',
   },
@@ -587,7 +582,14 @@ const styles = StyleSheet.create({
     bottom:          4,
     left:            4,
     borderRadius:    10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#FFFFFF',
+    // Android shadow
+    elevation:       2,
+    // iOS shadow
+    shadowColor:     '#000000',
+    shadowOffset:    { width: 0, height: 1 },
+    shadowOpacity:   0.08,
+    shadowRadius:    4,
   },
   segmentOption: {
     flex:           1,
@@ -596,19 +598,19 @@ const styles = StyleSheet.create({
     zIndex:         1,              // renders above the slider
   },
   segmentText: {
-    color:         'rgba(255,255,255,0.38)',
+    color:         '#94A3B8',
     fontSize:      12,
     fontWeight:    '500',
     letterSpacing: 0.3,
     textAlign:     'center',
   },
   segmentTextActive: {
-    color:      '#FFFFFF',
+    color:      '#0F172A',
     fontWeight: '600',
   },
 
   megaNote: {
-    color:         'rgba(255,255,255,0.25)',
+    color:         '#94A3B8',
     fontSize:      11,
     fontWeight:    '300',
     letterSpacing: 0.3,
@@ -618,18 +620,27 @@ const styles = StyleSheet.create({
 
   // ── Play button ──────────────────────────────────────────────────────────────
   playButton: {
-    width:           '100%',
-    paddingVertical: 18,
-    backgroundColor: '#FFFFFF',
+    alignSelf:       'center',
+    width:           '85%',
+    height:          60,
+    backgroundColor: '#0F172A',
     borderRadius:    20,
+    justifyContent:  'center',
     alignItems:      'center',
-    marginTop:       4,
+    marginTop:       20,
+    shadowColor:     '#000',
+    shadowOffset:    { width: 0, height: 6 },
+    shadowOpacity:   0.15,
+    shadowRadius:    10,
+    elevation:       6,
   },
   playButtonText: {
-    color:         '#020617',
-    fontSize:      14,
+    color:         '#FFFFFF',
+    fontSize:      16,
     fontWeight:    '800',
-    letterSpacing: 4,
+    letterSpacing: 8,
+    textAlign:     'center',
+    marginLeft:    8,
   },
 
   // ── How to Play link ─────────────────────────────────────────────────────────
@@ -639,15 +650,15 @@ const styles = StyleSheet.create({
     borderRadius:      8,
   },
   rulesLinkPressed: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(15,23,42,0.05)',
   },
   rulesLinkText: {
-    color:                'rgba(255,255,255,0.28)',
+    color:                '#94A3B8',
     fontSize:             11,
     fontWeight:           '400',
     letterSpacing:        2,
     textDecorationLine:   'underline',
-    textDecorationColor:  'rgba(255,255,255,0.15)',
+    textDecorationColor:  '#CBD5E1',
     textAlign:            'center',
   },
 });

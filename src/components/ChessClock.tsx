@@ -90,17 +90,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius:      10,
     borderWidth:       1,
-    borderColor:       'rgba(255,255,255,0.12)',
-    backgroundColor:   'rgba(255,255,255,0.05)',
+    borderColor:       '#E2E8F0',
+    backgroundColor:   '#FFFFFF',
     alignItems:        'center',
     minWidth:          88,
   },
   containerActive: {
-    borderColor:     'rgba(255,255,255,0.30)',
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderColor:     'rgba(251,191,36,0.55)',
+    backgroundColor: '#FFFBEB',
   },
   label: {
-    color:         'rgba(255,255,255,0.40)',
+    color:         '#94A3B8',
     fontSize:      10,
     fontWeight:    '600',
     letterSpacing: 0.6,
@@ -108,16 +108,16 @@ const styles = StyleSheet.create({
     marginBottom:  2,
   },
   time: {
-    color:         'rgba(255,255,255,0.88)',
+    color:         '#0F172A',
     fontSize:      20,
     fontWeight:    '700',
     letterSpacing: 1,
     fontVariant:   ['tabular-nums'],
   },
   timeLow: {
-    color: '#FF4444',
+    color: '#EF4444',
   },
   timeDim: {
-    color: 'rgba(255,255,255,0.30)',
+    color: '#CBD5E1',
   },
 });
