@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
   StatusBar,
   LayoutChangeEvent,
@@ -319,27 +320,32 @@ function HomeScreen({
             )}
           </View>
 
-          {/* Play CTA */}
-          <Pressable
-            onPress={() => {
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              navigation.navigate('Game', { gameMode, difficulty, matchType, boardVariant });
-            }}
-            onPressIn={() => { playScale.value = withTiming(0.97, { duration: 80 }); }}
-            onPressOut={() => { playScale.value = withTiming(1.0, { duration: 160 }); }}
-          >
-            <Animated.View style={[styles.playButton, playScaleStyle]}>
-              <Text style={styles.playButtonText}>PLAY</Text>
-            </Animated.View>
-          </Pressable>
+          {/* Play CTA + How to Play — grouped */}
+          <View style={styles.buttonGroup}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                navigation.navigate('Game', { gameMode, difficulty, matchType, boardVariant });
+              }}
+              onPressIn={() => { playScale.value = withTiming(0.97, { duration: 80 }); }}
+              onPressOut={() => { playScale.value = withTiming(1.0, { duration: 160 }); }}
+            >
+              <Animated.View style={[styles.playButton, playScaleStyle]}>
+                <Ionicons name="play" size={22} color="#0F172A" style={{ marginRight: 12 }} />
+                <Text style={styles.playButtonText}>PLAY</Text>
+              </Animated.View>
+            </TouchableOpacity>
 
-          {/* How to Play — underlined subtle link */}
-          <Pressable
-            onPress={() => navigation.navigate('Rules')}
-            style={({ pressed }) => [styles.rulesLink, pressed && styles.rulesLinkPressed]}
-          >
-            <Text style={styles.rulesLinkText}>HOW TO PLAY</Text>
-          </Pressable>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Rules')}
+              style={styles.rulesLink}
+            >
+              <Ionicons name="book-outline" size={16} color="#334155" style={{ marginRight: 8 }} />
+              <Text style={styles.rulesLinkText}>How to play</Text>
+            </TouchableOpacity>
+          </View>
 
         </Animated.View>
       </ScrollView>
@@ -415,7 +421,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow:          1,
     alignItems:        'center',
-    paddingTop:        72,
+    paddingTop:        100,
     paddingBottom:     56,
     paddingHorizontal: 20,
     gap:               14,
@@ -434,18 +440,18 @@ const styles = StyleSheet.create({
   },
   homeTitle: {
     color:         '#0F172A',
-    fontSize:      48,
-    fontWeight:    '900',
-    letterSpacing: 14,
+    fontSize:      42,
+    fontWeight:    '600',
+    letterSpacing: 12,
     textAlign:     'center',
   },
   homeTitleSub: {
-    color:         '#94A3B8',
-    fontSize:      10,
-    fontWeight:    '300',
-    letterSpacing: 8,
+    color:         '#475569',
+    fontSize:      13,
+    fontWeight:    '600',
+    letterSpacing: 5,
     textAlign:     'center',
-    marginTop:     4,
+    marginTop:     12,
   },
 
   // ── Glassmorphism card ──────────────────────────────────────────────────────
@@ -618,47 +624,59 @@ const styles = StyleSheet.create({
     fontStyle:     'italic',
   },
 
-  // ── Play button ──────────────────────────────────────────────────────────────
-  playButton: {
-    alignSelf:       'center',
-    width:           '85%',
-    height:          60,
-    backgroundColor: '#0F172A',
-    borderRadius:    20,
-    justifyContent:  'center',
-    alignItems:      'center',
-    marginTop:       20,
-    shadowColor:     '#000',
-    shadowOffset:    { width: 0, height: 6 },
-    shadowOpacity:   0.15,
-    shadowRadius:    10,
-    elevation:       6,
-  },
-  playButtonText: {
-    color:         '#FFFFFF',
-    fontSize:      16,
-    fontWeight:    '800',
-    letterSpacing: 8,
-    textAlign:     'center',
-    marginLeft:    8,
+  // ── Button group (Play + How to play) ────────────────────────────────────────
+  buttonGroup: {
+    alignItems:  'center',
+    gap:         16,
+    marginTop:   28,
+    marginBottom: 20,
+    width:       '100%',
   },
 
-  // ── How to Play link ─────────────────────────────────────────────────────────
-  rulesLink: {
-    paddingVertical:   8,
-    paddingHorizontal: 16,
-    borderRadius:      8,
+  // ── Play button ──────────────────────────────────────────────────────────────
+  playButton: {
+    flexDirection:     'row',
+    justifyContent:    'center',
+    alignItems:        'center',
+    minWidth:          220,
+    maxWidth:          260,
+    paddingVertical:   18,
+    paddingHorizontal: 48,
+    backgroundColor:   '#D4AF37',
+    borderRadius:      50,
+    borderWidth:       1.5,
+    borderColor:       'rgba(255, 255, 255, 0.5)',
+    shadowColor:       '#92400E',
+    shadowOffset:      { width: 0, height: 10 },
+    shadowOpacity:     0.4,
+    shadowRadius:      15,
+    elevation:         10,
   },
-  rulesLinkPressed: {
-    backgroundColor: 'rgba(15,23,42,0.05)',
+  playButtonText: {
+    color:         '#0F172A',
+    fontSize:      20,
+    fontWeight:    '900',
+    letterSpacing: 6,
+    marginLeft:    6,
+  },
+
+  // ── How to Play ghost/outline button ─────────────────────────────────────────
+  rulesLink: {
+    flexDirection:   'row',
+    justifyContent:  'center',
+    alignItems:      'center',
+    width:           '60%',
+    height:          50,
+    borderRadius:    25,
+    borderWidth:     2,
+    borderColor:     '#334155',
+    backgroundColor: 'transparent',
   },
   rulesLinkText: {
-    color:                '#94A3B8',
-    fontSize:             11,
-    fontWeight:           '400',
-    letterSpacing:        2,
-    textDecorationLine:   'underline',
-    textDecorationColor:  '#CBD5E1',
-    textAlign:            'center',
+    color:         '#334155',
+    fontSize:      15,
+    fontWeight:    '600',
+    letterSpacing: 1,
+    textAlign:     'center',
   },
 });
