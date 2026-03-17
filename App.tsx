@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import * as SplashScreen from 'expo-splash-screen';
-import { Asset } from 'expo-asset';
+import * as Font from 'expo-font';
 import {
+  ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,10 +27,6 @@ import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navig
 import Board from './src/components/Board';
 import StatusBanner from './src/components/StatusBanner';
 import RulesScreen from './src/screens/RulesScreen';
-
-// Keep the native splash visible until we explicitly dismiss it.
-// Must be called synchronously before any component renders.
-SplashScreen.preventAutoHideAsync();
 
 type GameMode     = 'pvp' | 'pve';
 type Difficulty   = 'easy' | 'medium' | 'hard';
@@ -400,39 +397,65 @@ function GameScreen({
 // ---------------------------------------------------------------------------
 // App root
 // ---------------------------------------------------------------------------
-export default function App(): React.JSX.Element | null {
-  const [appIsReady, setAppIsReady] = useState(false);
+export default function App(): React.JSX.Element {
+  // assetsLoaded: fonts + image cache are ready; safe to render Ionicons.
+  // layoutReady:  NavigationContainer.onReady fired + 300ms native paint delay.
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [layoutReady,  setLayoutReady]  = useState(false);
+
+  const showApp = assetsLoaded && layoutReady;
 
   useEffect(() => {
     async function prepare(): Promise<void> {
       try {
-        await Asset.loadAsync(require('./assets/dragon_bg.png'));
+        const imageURI = Image.resolveAssetSource(require('./assets/dragon_bg.png')).uri;
+        await Promise.all([
+          Image.prefetch(imageURI),
+          Font.loadAsync(Ionicons.font),
+        ]);
       } catch (e) {
         console.warn('Asset preload failed:', e);
       } finally {
-        setAppIsReady(true);
+        setAssetsLoaded(true);
       }
     }
     void prepare();
   }, []);
 
-  const onLayoutRootView = useCallback((): void => {
-    if (appIsReady) {
-      void SplashScreen.hideAsync();
-    }
-  }, [appIsReady]);
-
-  if (!appIsReady) return null;
-
   return (
-    <View style={styles.root} onLayout={onLayoutRootView}>
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAFC' } }}>
-          <Stack.Screen name="Home"  component={HomeScreen} />
-          <Stack.Screen name="Game"  component={GameScreen} />
-          <Stack.Screen name="Rules" component={RulesScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
+    <View style={styles.root}>
+
+      {/* Nav tree pre-renders the moment fonts are safe to use.
+          It is visually covered by the overlay until onReady fires.
+          onReady is called by React Navigation after the initial route
+          is fully mounted; we then wait 300 ms for the native bridge to
+          physically paint those frames before lifting the curtain. */}
+      {assetsLoaded && (
+        <View style={styles.root}>
+          <NavigationContainer
+            onReady={() => {
+              setTimeout(() => setLayoutReady(true), 300);
+            }}
+          >
+            <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAFC' } }}>
+              <Stack.Screen name="Home"  component={HomeScreen} />
+              <Stack.Screen name="Game"  component={GameScreen} />
+              <Stack.Screen name="Rules" component={RulesScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </View>
+      )}
+
+      {/* Loading overlay — absolutely positioned on top, unmounts only after
+          the first real layout pass confirms the app is fully painted. */}
+      {!showApp && (
+        <View style={styles.loadingScreen}>
+          <StatusBar translucent barStyle="light-content" backgroundColor="transparent" />
+          <Text style={styles.loadingTitle}>KAMISADO</Text>
+          <ActivityIndicator size="large" color="#D4AF37" style={styles.loadingSpinner} />
+        </View>
+      )}
+
     </View>
   );
 }
@@ -441,6 +464,26 @@ export default function App(): React.JSX.Element | null {
 // Styles
 // ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
+  loadingScreen: {
+    position:        'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: '#0F172A',
+    justifyContent:  'center',
+    alignItems:      'center',
+    zIndex:          999,
+    elevation:       999,
+  },
+  loadingTitle: {
+    color:         '#D4AF37',
+    fontSize:      32,
+    fontWeight:    '600',
+    letterSpacing: 12,
+    marginBottom:  32,
+  },
+  loadingSpinner: {
+    marginTop: 8,
+  },
+
   root: {
     flex:            1,
     backgroundColor: '#FFFFFF',

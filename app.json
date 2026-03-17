@@ -12,7 +12,11 @@
       "package": "com.peer.kamisado",
       "versionCode": 1
     },
-    "plugins": ["expo-av"],
+    "plugins": [
+      "expo-av",
+      "expo-asset",
+      "expo-font"
+    ],
     "extra": {
       "eas": {
         "projectId": "7a2cb80f-250e-4642-b8cd-7f6efe7dc096"
