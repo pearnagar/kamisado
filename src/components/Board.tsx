@@ -418,19 +418,18 @@ export default function Board({
         />
       </View>
 
-      {/* Turn status indicator */}
-      {!isGameOver && hasGameStarted && (() => {
+      {/* Turn status indicator — always rendered; opacity drives visibility */}
+      {(() => {
         const label = isAiThinking
           ? 'AI THINKING...'
           : opponentMode === 'PvE'
-            ? gameState.turn === Player.White ? 'YOUR TURN' : ''
+            ? gameState.turn === Player.White ? 'YOUR TURN' : ' '
             : gameState.turn === Player.White ? "WHITE'S TURN" : "BLACK'S TURN";
-        return label ? (
-          <View style={styles.turnStatusCard}>
+        const visible = !isGameOver && hasGameStarted && label.trim() !== '';
+        return (
+          <View style={[styles.turnStatusCard, { opacity: visible ? 1 : 0 }]}>
             <Text style={styles.turnStatus}>{label}</Text>
           </View>
-        ) : (
-          <View style={styles.turnStatusSpacer} />
         );
       })()}
 
@@ -668,15 +667,14 @@ const styles = StyleSheet.create({
     gap:           16,
   },
   turnStatusCard: {
-    paddingVertical:   6,
+    height:            32,
     paddingHorizontal: 16,
     borderRadius:      20,
     borderWidth:       1,
     borderColor:       'rgba(251,191,36,0.45)',
     backgroundColor:   '#FFFFFF',
-  },
-  turnStatusSpacer: {
-    height: 30,
+    justifyContent:    'center',
+    alignItems:        'center',
   },
   turnStatus: {
     color:         '#0F172A',
