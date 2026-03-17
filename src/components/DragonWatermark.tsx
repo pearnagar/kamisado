@@ -22,7 +22,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center', 
     justifyContent: 'center'
-    // כאן תכניס את ה-Hex שדגמת (או פשוט #FFFFFF ללבן נקי), וזה ימלא את כל המסך באחידות
   },
   image: {
     width: '100%',
