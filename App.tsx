@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
+import { Asset } from 'expo-asset';
 import {
   Pressable,
   ScrollView,
@@ -24,6 +26,10 @@ import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navig
 import Board from './src/components/Board';
 import StatusBanner from './src/components/StatusBanner';
 import RulesScreen from './src/screens/RulesScreen';
+
+// Keep the native splash visible until we explicitly dismiss it.
+// Must be called synchronously before any component renders.
+SplashScreen.preventAutoHideAsync();
 
 type GameMode     = 'pvp' | 'pve';
 type Difficulty   = 'easy' | 'medium' | 'hard';
@@ -394,15 +400,40 @@ function GameScreen({
 // ---------------------------------------------------------------------------
 // App root
 // ---------------------------------------------------------------------------
-export default function App(): React.JSX.Element {
+export default function App(): React.JSX.Element | null {
+  const [appIsReady, setAppIsReady] = useState(false);
+
+  useEffect(() => {
+    async function prepare(): Promise<void> {
+      try {
+        await Asset.loadAsync(require('./assets/dragon_bg.png'));
+      } catch (e) {
+        console.warn('Asset preload failed:', e);
+      } finally {
+        setAppIsReady(true);
+      }
+    }
+    void prepare();
+  }, []);
+
+  const onLayoutRootView = useCallback((): void => {
+    if (appIsReady) {
+      void SplashScreen.hideAsync();
+    }
+  }, [appIsReady]);
+
+  if (!appIsReady) return null;
+
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAFC' } }}>
-        <Stack.Screen name="Home"  component={HomeScreen} />
-        <Stack.Screen name="Game"  component={GameScreen} />
-        <Stack.Screen name="Rules" component={RulesScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <View style={styles.root} onLayout={onLayoutRootView}>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAFC' } }}>
+          <Stack.Screen name="Home"  component={HomeScreen} />
+          <Stack.Screen name="Game"  component={GameScreen} />
+          <Stack.Screen name="Rules" component={RulesScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </View>
   );
 }
 

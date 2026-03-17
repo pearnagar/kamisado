@@ -133,3 +133,16 @@
 - [x] Zero layout shift fix — turn indicator always rendered; visibility via `opacity` only; fixed `height: 32`
 
 **Exit criteria:** Home screen and game board feel premium; no layout shifts during gameplay. ✓ Verified 2026-03-17.
+
+---
+
+## Phase 8: App Startup & Asset Preloading 🚧
+**Goal:** Implement Splash Screen retention, preload heavy assets (`dragon_bg.png`), and ensure a zero-flicker, smooth reveal of the Home Screen.
+
+- [x] Install `expo-splash-screen` and `expo-asset`
+- [x] `SplashScreen.preventAutoHideAsync()` called synchronously at module level, after all imports
+- [x] `Asset.loadAsync(dragon_bg.png)` inside an async `prepare()` in `useEffect` — non-fatal catch with console.warn
+- [x] `appIsReady` state gate: `App()` returns `null` until assets resolve, preventing any unstyled render
+- [x] `onLayout` on the root `View` calls `SplashScreen.hideAsync()` — fires only after the first real painted frame
+
+**Exit criteria:** Cold launch shows splash until the Home Screen is fully painted, with no flash of unstyled content.
