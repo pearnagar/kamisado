@@ -113,13 +113,23 @@
 
 ---
 
-## Phase 7: Home Screen Redesign
-**Goal:** A premium, polished landing experience.
+## Phase 7: Premium UI/UX Overhaul ✅
+**Goal:** A premium, polished landing experience and game screen.
 
-- [ ] Modern UI layout for game mode selection (PvP / PvE)
-- [ ] Difficulty selector (Easy / Medium / Hard) and Variant selector (8×8 / 10×10) overhaul
-- [ ] High-quality background assets or gradients
-- [ ] Animated transitions from Home to Board
-- [ ] Consistent typography and button styles using NativeWind
+- [x] Dragon watermark background — translucent `dragon_bg.png` absolutely positioned over Slate-50 (`#F8FAFC`) base, visible on both Home and Game screens
+- [x] Home Screen redesign — `KAMISADO` title (`fontWeight: '600'`, `letterSpacing: 12`), `STRATEGIC DRAGON CHESS` subtitle (`fontSize: 13`, Slate 600)
+- [x] Mode cards — glassmorphism `BlurView` cards with gold border accent, animated scale on press
+- [x] Sliding segment controls — animated highlight pill for Game Type and Board selectors
+- [x] Premium PLAY button — gold `#D4AF37` pill, play icon, dark slate text, warm bronze shadow (`#92400E`)
+- [x] Ghost/outline "How to play" button — `borderColor: #334155`, `borderWidth: 2`
+- [x] Rules Screen rebuilt as horizontal swipeable carousel — `FlatList` with `snapToInterval`, `decelerationRate="fast"`, centered via `SIDE_PADDING` math
+- [x] Rules cards — frost glass (`rgba(255,255,255,0.85)`), gold border, icon badge, gold divider
+- [x] Pagination dots — pill-shaped active dot in gold `#D4AF37`, slate inactive dots
+- [x] Game Screen layout — Board wrapper `flex: 1`, `paddingTop: 50` for safe-area clearance
+- [x] ScoreHeader player badges — pill containers with `rgba(255,255,255,0.6)` glass, gold border, `fontSize: 18` bold scores
+- [x] Board tile 3D bevel — per-side border overlay: light top/left, dark bottom/right, simulates raised acrylic tile
+- [x] Dragon piece drop shadow — `shadowOffset: {0,4}`, `elevation: 8` on `Animated.View` (outside `overflow:hidden`)
+- [x] UNDO/QUIT button redesign — UNDO slate `#334155`, QUIT crimson `#991B1B`, pill shape, white bold text
+- [x] Zero layout shift fix — turn indicator always rendered; visibility via `opacity` only; fixed `height: 32`
 
-**Exit criteria:** Home screen feels premium and transitions smoothly to the board.
+**Exit criteria:** Home screen and game board feel premium; no layout shifts during gameplay. ✓ Verified 2026-03-17.

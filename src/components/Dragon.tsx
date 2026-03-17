@@ -96,7 +96,7 @@ const Dragon = memo(function Dragon({
   return (
     // renderToHardwareTextureAndroid: composites into a GPU texture before
     // drawing, eliminating redraws during transform-only animations on Android.
-    <Animated.View style={animatedStyle} renderToHardwareTextureAndroid>
+    <Animated.View style={[styles.shadow, animatedStyle]} renderToHardwareTextureAndroid>
       <Pressable
         onPress={handlePress}
         android_ripple={null}
@@ -125,6 +125,13 @@ const Dragon = memo(function Dragon({
 export default Dragon;
 
 const styles = StyleSheet.create({
+  shadow: {
+    shadowColor:   '#000',
+    shadowOffset:  { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius:  4,
+    elevation:     8,
+  },
   stone: {
     borderRadius: 999,
     justifyContent: 'center',
