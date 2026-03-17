@@ -1,101 +1,146 @@
-import React, { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, StatusBar } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+  Dimensions,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  StatusBar,
+  ViewToken,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import DragonWatermark from '../components/DragonWatermark';
 
-interface RuleItem {
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Card is 85% of screen. Each card gets 16px margin on each side.
+// SIDE_PADDING centres the first/last card when scroll offset = 0.
+const CARD_WIDTH    = SCREEN_WIDTH * 0.85;
+const CARD_MARGIN   = 16;
+const SNAP_INTERVAL = CARD_WIDTH + CARD_MARGIN * 2;
+const SIDE_PADDING  = (SCREEN_WIDTH - CARD_WIDTH) / 2 - CARD_MARGIN;
+
+interface RuleCard {
+  id:    string;
   icon:  React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
   title: string;
   body:  string;
 }
 
-const RULES: RuleItem[] = [
+const CARDS: RuleCard[] = [
   {
-    icon:  'arrow-forward-outline',
-    title: 'Movement',
-    body:  'Pieces advance forward only — straight or diagonally. No jumping over pieces, no captures.',
+    id:    '1',
+    icon:  'flag-outline',
+    label: 'THE GOAL',
+    title: 'Reach the Back Rank',
+    body:  "Advance any of your dragons to your opponent's back rank to win the round. First piece to reach the far end takes the point.",
   },
   {
+    id:    '2',
+    icon:  'navigate-outline',
+    label: 'MOVEMENT',
+    title: 'Forward, Never Back',
+    body:  'Pieces move forward only — straight ahead or diagonally. They slide any number of squares in one direction per turn. No jumping over pieces. No captures.',
+  },
+  {
+    id:    '3',
     icon:  'color-palette-outline',
+    label: 'THE CORE RULE',
     title: 'The Color Lock',
-    body:  'When your piece lands on a colored square, your opponent must move the piece that matches that color. This forced chain reaction is the strategic core of Kamisado.',
+    body:  "When your piece lands on a colored square, your opponent must move the piece matching that color. This forced chain reaction is the strategic heart of Kamisado.",
   },
   {
-    icon:  'trophy-outline',
-    title: 'Victory Condition',
-    body:  "Advance any of your pieces onto the opponent's back rank to win the round.",
-  },
-  {
+    id:    '4',
     icon:  'refresh-outline',
-    title: 'Rule M6 — Forfeit',
-    body:  'If the forced piece has no legal moves, that player forfeits their turn. The forced color resets to the square currently occupied by the trapped piece.',
+    label: 'RULE M6',
+    title: 'Blocked? Forfeit.',
+    body:  'If the forced piece has no legal moves, that player forfeits their turn. The color lock resets to the square the trapped piece currently occupies.',
   },
   {
-    icon:  'ban-outline',
-    title: 'Rule M8 — Repetition Loss',
-    body:  'If you cause the same board position to repeat within the last 10 moves, you immediately lose the round.',
+    id:    '5',
+    icon:  'bulb-outline',
+    label: 'STRATEGY',
+    title: 'Control the Chain',
+    body:  'Plan several moves ahead. The color you land on dictates which dragon your opponent must move next. Direct their pieces to dead ends — or clear the path for your own advance.',
   },
 ];
 
 export default function RulesScreen(): React.JSX.Element {
   const navigation = useNavigation();
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  const opacity    = useSharedValue(0);
-  const translateY = useSharedValue(20);
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  useEffect(() => {
-    opacity.value    = withTiming(1, { duration: 450 });
-    translateY.value = withTiming(0, { duration: 450 });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index != null) {
+        setActiveIndex(viewableItems[0].index);
+      }
+    },
+    [],
+  );
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity:   opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
+  const renderCard = useCallback(({ item }: { item: RuleCard }): React.JSX.Element => (
+    <View style={styles.page}>
+      <View style={styles.card}>
+        <View style={styles.cardIconWrap}>
+          <Ionicons name={item.icon} size={30} color="#D4AF37" />
+        </View>
+        <Text style={styles.cardLabel}>{item.label}</Text>
+        <Text style={styles.cardTitle}>{item.title}</Text>
+        <View style={styles.divider} />
+        <Text style={styles.cardBody}>{item.body}</Text>
+      </View>
+    </View>
+  ), []);
 
   return (
     <View style={styles.root}>
       <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <DragonWatermark />
+
+      {/* Back button — floating pill */}
+      <Pressable
+        onPress={() => navigation.goBack()}
+        style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
       >
-        <Animated.View style={[styles.content, animatedStyle]}>
+        <Ionicons name="arrow-back" size={18} color="#334155" />
+      </Pressable>
 
-          <Text style={styles.title}>GAME RULES</Text>
-          <Text style={styles.subtitle}>STRATEGY GUIDE</Text>
+      {/* Screen heading */}
+      <View style={styles.header}>
+        <Text style={styles.screenTitle}>GAME RULES</Text>
+        <Text style={styles.screenSub}>Swipe to explore</Text>
+      </View>
 
-          {RULES.map(rule => (
-            <View key={rule.title} style={styles.ruleCard}>
-              <View style={styles.ruleIconWrap}>
-                <Ionicons name={rule.icon} size={20} color="#94A3B8" />
-              </View>
-              <Text style={styles.ruleTitle}>{rule.title}</Text>
-              <Text style={styles.ruleBody}>{rule.body}</Text>
-            </View>
-          ))}
+      {/* Horizontal carousel — snap-to-card, not snap-to-screen */}
+      <FlatList
+        data={CARDS}
+        keyExtractor={item => item.id}
+        renderItem={renderCard}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+        snapToInterval={SNAP_INTERVAL}
+        snapToAlignment="center"
+        contentContainerStyle={{ paddingHorizontal: SIDE_PADDING }}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        style={styles.flatList}
+      />
 
-          <View style={styles.strategyCard}>
-            <Text style={styles.strategyHeading}>STRATEGIC INSIGHT</Text>
-            <Text style={styles.strategyBody}>
-              Plan several moves ahead. The color you land on determines which
-              piece your opponent is forced to move. Control the color chain —
-              direct their pieces to squares that serve your advance, not theirs.
-            </Text>
-          </View>
+      {/* Pagination dots */}
+      <View style={styles.dotsRow}>
+        {CARDS.map((_, i) => (
+          <View key={i} style={[styles.dot, i === activeIndex && styles.dotActive]} />
+        ))}
+      </View>
 
-          <Pressable
-            onPress={() => navigation.goBack()}
-            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-          >
-            <Ionicons name="arrow-back-outline" size={16} color="#94A3B8" />
-            <Text style={styles.backButtonText}>Back</Text>
-          </Pressable>
-
-        </Animated.View>
-      </ScrollView>
+      {/* Card counter */}
+      <Text style={styles.counter}>{activeIndex + 1} / {CARDS.length}</Text>
     </View>
   );
 }
@@ -105,112 +150,145 @@ const styles = StyleSheet.create({
     flex:            1,
     backgroundColor: '#F8FAFC',
   },
-  scrollContent: {
-    flexGrow:          1,
-    paddingHorizontal: 20,
-    paddingVertical:   64,
+
+  // ── Back button ──────────────────────────────────────────────────────────────
+  backButton: {
+    position:        'absolute',
+    top:             52,
+    left:            20,
+    zIndex:          10,
+    width:           40,
+    height:          40,
+    borderRadius:    20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    alignItems:      'center',
+    justifyContent:  'center',
+    shadowColor:     '#000',
+    shadowOffset:    { width: 0, height: 2 },
+    shadowOpacity:   0.08,
+    shadowRadius:    6,
+    elevation:       3,
   },
-  content: {
-    alignItems: 'center',
-    gap:        12,
+  backButtonPressed: {
+    backgroundColor: '#E2E8F0',
   },
 
-  title: {
+  // ── Header ───────────────────────────────────────────────────────────────────
+  header: {
+    alignItems:    'center',
+    paddingTop:    88,
+    paddingBottom: 16,
+  },
+  screenTitle: {
     color:         '#0F172A',
-    fontSize:      28,
-    fontWeight:    '900',
+    fontSize:      22,
+    fontWeight:    '700',
     letterSpacing: 6,
     textAlign:     'center',
   },
-  subtitle: {
+  screenSub: {
     color:         '#94A3B8',
     fontSize:      11,
     fontWeight:    '400',
-    letterSpacing: 5,
-    textAlign:     'center',
-    marginBottom:  16,
+    letterSpacing: 1.5,
+    marginTop:     6,
   },
 
-  ruleCard: {
-    width:             '100%',
-    backgroundColor:   '#FFFFFF',
-    borderWidth:       1,
-    borderColor:       'rgba(251,191,36,0.25)',
-    borderRadius:      20,
-    paddingVertical:   20,
-    paddingHorizontal: 20,
-    alignItems:        'center',
-    gap:               6,
+  // ── Carousel ─────────────────────────────────────────────────────────────────
+  flatList: {
+    flex: 1,
   },
-  ruleIconWrap: {
-    width:           40,
-    height:          40,
-    borderRadius:    12,
-    backgroundColor: '#F1F5F9',
+  // Each page = card width + horizontal margins; FlatList height fills flex:1
+  page: {
+    width:          CARD_WIDTH,
+    marginHorizontal: CARD_MARGIN,
+    flex:           1,
+    justifyContent: 'center',
+    alignItems:     'center',
+  },
+
+  // ── Card ─────────────────────────────────────────────────────────────────────
+  card: {
+    width:             CARD_WIDTH,
+    backgroundColor:   'rgba(255, 255, 255, 0.85)',
+    borderWidth:       1,
+    borderColor:       'rgba(212, 175, 55, 0.4)',
+    borderRadius:      28,
+    padding:           28,
+    alignItems:        'center',
+    gap:               12,
+    shadowColor:       '#000',
+    shadowOffset:      { width: 0, height: 8 },
+    shadowOpacity:     0.08,
+    shadowRadius:      20,
+    elevation:         6,
+  },
+  cardIconWrap: {
+    width:           68,
+    height:          68,
+    borderRadius:    22,
+    backgroundColor: 'rgba(212, 175, 55, 0.10)',
     borderWidth:     1,
-    borderColor:     '#E2E8F0',
+    borderColor:     'rgba(212, 175, 55, 0.30)',
     alignItems:      'center',
     justifyContent:  'center',
     marginBottom:    4,
   },
-  ruleTitle: {
-    color:         '#0F172A',
-    fontSize:      14,
-    fontWeight:    '700',
-    letterSpacing: 0.5,
-    textAlign:     'center',
-  },
-  ruleBody: {
-    color:      '#64748B',
-    fontSize:   13,
-    fontWeight: '400',
-    lineHeight: 21,
-    textAlign:  'center',
-    marginTop:  2,
-  },
-
-  strategyCard: {
-    width:             '100%',
-    backgroundColor:   '#FFFBEB',
-    borderWidth:       1,
-    borderColor:       'rgba(251,191,36,0.45)',
-    borderRadius:      20,
-    paddingVertical:   20,
-    paddingHorizontal: 20,
-    alignItems:        'center',
-    gap:               8,
-    marginTop:         4,
-  },
-  strategyHeading: {
-    color:         '#92400E',
+  cardLabel: {
+    color:         '#D4AF37',
     fontSize:      10,
     fontWeight:    '700',
-    letterSpacing: 2.5,
+    letterSpacing: 3,
+    textAlign:     'center',
   },
-  strategyBody: {
-    color:      '#78350F',
-    fontSize:   13,
+  cardTitle: {
+    color:         '#0F172A',
+    fontSize:      24,
+    fontWeight:    '700',
+    letterSpacing: 0.3,
+    textAlign:     'center',
+    lineHeight:    30,
+  },
+  divider: {
+    width:           40,
+    height:          2,
+    backgroundColor: 'rgba(212, 175, 55, 0.5)',
+    borderRadius:    1,
+    marginVertical:  4,
+  },
+  cardBody: {
+    color:      '#475569',
+    fontSize:   16,
     fontWeight: '400',
-    lineHeight: 21,
+    lineHeight: 24,
     textAlign:  'center',
   },
 
-  backButton: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    gap:               6,
-    paddingVertical:   10,
-    paddingHorizontal: 20,
-    borderRadius:      12,
-    marginTop:         8,
+  // ── Pagination ───────────────────────────────────────────────────────────────
+  dotsRow: {
+    flexDirection:  'row',
+    justifyContent: 'center',
+    alignItems:     'center',
+    paddingTop:     20,
+    paddingBottom:  8,
   },
-  backButtonPressed: {
-    backgroundColor: '#F1F5F9',
+  dot: {
+    width:           10,
+    height:          10,
+    borderRadius:    5,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 6,
   },
-  backButtonText: {
+  dotActive: {
+    width:           28,
+    backgroundColor: '#D4AF37',
+  },
+  counter: {
     color:         '#94A3B8',
-    fontSize:      13,
+    fontSize:      11,
     fontWeight:    '500',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    textAlign:     'center',
+    paddingBottom: 36,
   },
 });
