@@ -398,6 +398,7 @@ export default function Board({
         gameMode={gameState.gameMode}
         matchScore={gameState.matchScore}
         roundNumber={gameState.roundNumber}
+        boardWidth={boardWidth}
       />
 
       <View style={[styles.clockRow, { width: boardWidth }]}>
@@ -545,12 +546,12 @@ export default function Board({
                 onPress={handleUndo}
                 disabled={!canUndo}
                 style={({ pressed }) => [
-                  styles.quitButton,
-                  pressed && canUndo && styles.quitButtonPressed,
-                  !canUndo && styles.quitButtonDisabled,
+                  styles.undoButton,
+                  pressed && canUndo && styles.undoButtonPressed,
+                  !canUndo && styles.undoButtonDisabled,
                 ]}
               >
-                <Text style={[styles.quitButtonText, !canUndo && styles.quitButtonTextDisabled]}>
+                <Text style={[styles.actionButtonText, !canUndo && styles.actionButtonTextDisabled]}>
                   UNDO
                 </Text>
               </Pressable>
@@ -560,7 +561,7 @@ export default function Board({
             onPress={() => navigation.goBack()}
             style={({ pressed }) => [styles.quitButton, pressed && styles.quitButtonPressed]}
           >
-            <Text style={styles.quitButtonText}>QUIT</Text>
+            <Text style={styles.actionButtonText}>QUIT</Text>
           </Pressable>
         </View>
       )}
@@ -606,11 +607,14 @@ function LegalMoveDot({
 
 const styles = StyleSheet.create({
   wrapper: {
+    flex:            1,
     alignItems:      'center',
+    justifyContent:  'center',
     gap:             14,
     backgroundColor: 'rgba(255,255,255,0.80)',
-    borderRadius:    16,
-    padding:         8,
+    paddingTop:      50,
+    paddingBottom:   16,
+    paddingHorizontal: 8,
   },
   clockRow: {
     flexDirection:  'row',
@@ -626,33 +630,42 @@ const styles = StyleSheet.create({
     borderWidth:  3,
     borderColor:  '#0F172A',
   },
-  quitButton: {
-    paddingVertical:   8,
+  // ── UNDO button (slate) ──────────────────────────────────────────────────────
+  undoButton: {
+    paddingVertical:   12,
     paddingHorizontal: 24,
     borderRadius:      20,
-    borderWidth:       1,
-    borderColor:       '#E2E8F0',
-    backgroundColor:   '#FFFFFF',
+    backgroundColor:   '#334155',
+  },
+  undoButtonPressed: {
+    backgroundColor: '#1E293B',
+  },
+  undoButtonDisabled: {
+    backgroundColor: '#E2E8F0',
+  },
+  // ── QUIT button (crimson) ─────────────────────────────────────────────────────
+  quitButton: {
+    paddingVertical:   12,
+    paddingHorizontal: 24,
+    borderRadius:      20,
+    backgroundColor:   '#991B1B',
   },
   quitButtonPressed: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#7F1D1D',
   },
-  quitButtonText: {
-    color:         '#64748B',
+  // ── Shared button text ────────────────────────────────────────────────────────
+  actionButtonText: {
+    color:         '#FFFFFF',
     fontSize:      13,
-    fontWeight:    '500',
-    letterSpacing: 0.2,
+    fontWeight:    'bold',
+    letterSpacing: 0.5,
   },
-  quitButtonDisabled: {
-    borderColor:     '#F1F5F9',
-    backgroundColor: '#F8FAFC',
-  },
-  quitButtonTextDisabled: {
-    color: '#CBD5E1',
+  actionButtonTextDisabled: {
+    color: '#94A3B8',
   },
   bottomRow: {
     flexDirection: 'row',
-    gap:           12,
+    gap:           16,
   },
   turnStatusCard: {
     paddingVertical:   6,
