@@ -133,3 +133,30 @@
 - [x] Zero layout shift fix — turn indicator always rendered; visibility via `opacity` only; fixed `height: 32`
 
 **Exit criteria:** Home screen and game board feel premium; no layout shifts during gameplay. ✓ Verified 2026-03-17.
+
+---
+
+## Phase 8 (Deferred): App Startup & Asset Preloading ⏸
+**Status:** Paused — superseded by Phase 8 App Icon work. Revisit before production build.
+**Goal:** Implement Splash Screen retention, preload heavy assets (`dragon_bg.png`), and ensure a zero-flicker, smooth reveal of the Home Screen.
+
+- [ ] `fadeDuration={0}` on `DragonWatermark` image to suppress Android cross-fade
+- [ ] `NavigationContainer onReady` + 300 ms paint delay to gate loading overlay removal
+- [ ] Full JS loading screen (dark slate + gold spinner) covering hidden pre-rendered nav tree
+- [ ] `expo-font` preloads `Ionicons.font` before any Ionicons render
+- [ ] `Image.resolveAssetSource` + `Image.prefetch` warms native image cache
+
+**Exit criteria:** Cold launch shows splash until Home Screen is fully painted, with no flash of unstyled content.
+
+---
+
+## Phase 8: App Icon & Branding ✅
+**Goal:** Design a premium app icon that aligns with the Kamisado/Dragon theme (Gold/Slate), generate necessary assets for iOS and Android, and configure `app.json` for proper icon display.
+
+- [x] Design `icon.png` — gold dragon motif on slate `#0F172A` background, no transparency (iOS + legacy Android)
+- [x] Design `adaptive-icon.png` (foreground layer) — dragon on transparent background, centred inside safe zone (Android adaptive)
+- [x] Assets placed at `assets/icon.png` and `assets/adaptive-icon.png`
+- [x] Update `app.json`: `icon`, `android.adaptiveIcon.foregroundImage`, `android.adaptiveIcon.backgroundColor: "#0F172A"`
+- [ ] Verify icon renders correctly in Expo Go and a local Android build
+
+**Exit criteria:** App icon is visible on the Android home screen and Play Store listing with correct branding. ✓ Verified 2026-03-17.
