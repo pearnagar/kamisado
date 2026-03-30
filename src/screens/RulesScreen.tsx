@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -141,6 +142,14 @@ export default function RulesScreen(): React.JSX.Element {
 
       {/* Card counter */}
       <Text style={styles.counter}>{activeIndex + 1} / {CARDS.length}</Text>
+
+      {/* Privacy Policy */}
+      <Pressable
+        onPress={() => Linking.openURL('https://pearnagar.github.io/kamisado/privacy')}
+        style={({ pressed }) => [styles.privacyButton, pressed && styles.privacyButtonPressed]}
+      >
+        <Text style={styles.privacyText}>Privacy Policy</Text>
+      </Pressable>
     </View>
   );
 }
@@ -289,6 +298,26 @@ const styles = StyleSheet.create({
     fontWeight:    '500',
     letterSpacing: 1,
     textAlign:     'center',
-    paddingBottom: 36,
+    paddingBottom: 12,
+  },
+
+  // ── Privacy Policy ───────────────────────────────────────────────────────────
+  privacyButton: {
+    alignSelf:     'center',
+    paddingVertical:   8,
+    paddingHorizontal: 20,
+    marginBottom:  24,
+    borderRadius:  20,
+    borderWidth:   1,
+    borderColor:   '#CBD5E1',
+  },
+  privacyButtonPressed: {
+    backgroundColor: '#F1F5F9',
+  },
+  privacyText: {
+    color:         '#94A3B8',
+    fontSize:      11,
+    fontWeight:    '500',
+    letterSpacing: 0.5,
   },
 });
