@@ -163,3 +163,20 @@
 - [x] Removed all intermediate generated asset folders — single source of truth in `assets/`
 
 **Exit criteria:** App icon is visible on the Android home screen with correct branding. ✓ Verified on physical device 2026-03-30.
+
+---
+
+## Phase 9: Responsive UI & Viewport Optimization ✅
+**Goal:** Home Screen fits perfectly within the viewport on all device sizes — no scrolling required.
+
+Home Screen layout optimized for all aspect ratios; eliminated scrolling using dynamic Flexbox distribution.
+
+- [x] Replace `ScrollView` in `HomeScreen` with a no-scroll `View` using `flex: 1` + `justifyContent: 'space-between'`
+- [x] Add `SafeAreaProvider` at App root; use `useSafeAreaInsets()` in `HomeScreen` for notch/home-indicator clearance
+- [x] `rs()` responsive scale helper — scales sizes proportionally for screens shorter than 680dp reference height
+- [x] Apply `rs()` to card row padding, diff row, segment height, footer gaps, and button padding
+- [x] Apply `rs()` to `homeTitle` and `homeTitleSub` font sizes via inline style
+- [x] Fix `DragonWatermark` `resizeMode` from `"stretch"` → `"cover"`
+- [x] Verify layout on small (360×640) and large (412×915) device profiles
+
+**Exit criteria:** Home Screen content fits without scrolling on all common Android screen sizes, with no clipping or overflow. ✓ Verified 2026-03-30.

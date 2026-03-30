@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
+  Dimensions,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,6 +16,7 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import DragonWatermark from './src/components/DragonWatermark';
 import * as Haptics from 'expo-haptics';
@@ -37,6 +38,12 @@ type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Responsive scale: 1.0 on 680dp+ screens, proportionally smaller below that.
+const { height: SCREEN_H } = Dimensions.get('window');
+function rs(size: number): number {
+  return Math.round(size * Math.min(1, SCREEN_H / 680));
+}
 
 // ---------------------------------------------------------------------------
 // DifficultyPill
@@ -205,6 +212,8 @@ function SlidingSegment({
 function HomeScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'Home'>): React.JSX.Element {
+  const insets = useSafeAreaInsets();
+
   const [gameMode,     setGameMode]     = useState<GameMode>('pve');
   const [difficulty,   setDifficulty]   = useState<Difficulty>('medium');
   const [matchType,    setMatchType]    = useState<MatchType>('single');
@@ -243,16 +252,15 @@ function HomeScreen({
       <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
       <DragonWatermark />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={[
+        styles.homeContent,
+        { paddingTop: insets.top + rs(12), paddingBottom: insets.bottom + rs(12) },
+      ]}>
 
         {/* ── Header ── */}
         <Animated.View style={[styles.header, anim0]}>
-          <Text style={styles.homeTitle}>KAMISADO</Text>
-          <Text style={styles.homeTitleSub}>STRATEGIC DRAGON CHESS</Text>
+          <Text style={[styles.homeTitle, { fontSize: rs(42) }]}>KAMISADO</Text>
+          <Text style={[styles.homeTitleSub, { fontSize: rs(13) }]}>STRATEGIC DRAGON CHESS</Text>
         </Animated.View>
 
         {/* ── PvE Card ── */}
@@ -265,7 +273,6 @@ function HomeScreen({
             onPress={() => setGameMode('pve')}
             iconTint={{ bg: 'rgba(220,38,38,0.07)', border: 'rgba(220,38,38,0.18)', color: '#DC2626' }}
           >
-            {/* Difficulty row visible only when PvE selected */}
             {gameMode === 'pve' && (
               <View style={styles.diffRow}>
                 <DifficultyPill label="EASY"   active={difficulty === 'easy'}   onPress={() => setDifficulty('easy')} />
@@ -295,7 +302,7 @@ function HomeScreen({
             <Text style={styles.sectionLabel}>GAME TYPE</Text>
             <SlidingSegment
               options={[
-                { label: 'Classic Mode',    value: 'single' },
+                { label: 'Classic Mode',      value: 'single' },
                 { label: 'Match (Best of 3)', value: 'match' },
               ]}
               value={matchType}
@@ -348,7 +355,7 @@ function HomeScreen({
           </View>
 
         </Animated.View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -396,13 +403,15 @@ function GameScreen({
 // ---------------------------------------------------------------------------
 export default function App(): React.JSX.Element {
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAFC' } }}>
-        <Stack.Screen name="Home"  component={HomeScreen} />
-        <Stack.Screen name="Game"  component={GameScreen} />
-        <Stack.Screen name="Rules" component={RulesScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAFC' } }}>
+          <Stack.Screen name="Home"  component={HomeScreen} />
+          <Stack.Screen name="Game"  component={GameScreen} />
+          <Stack.Screen name="Rules" component={RulesScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
 
@@ -415,17 +424,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 
-  scrollView: {
-    backgroundColor: 'transparent',
-  },
-  scrollContent: {
-    flexGrow:          1,
+  // No-scroll viewport-fit container — space-between distributes the 4 blocks
+  homeContent: {
+    flex:              1,
+    justifyContent:    'space-between',
     alignItems:        'center',
-    paddingTop:        100,
-    paddingBottom:     56,
     paddingHorizontal: 20,
-    gap:               14,
-    backgroundColor:   'transparent',
   },
 
   fullWidth: {
@@ -436,7 +440,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems:     'center',
     justifyContent: 'center',
-    marginBottom:   28,
   },
   homeTitle: {
     color:         '#0F172A',
@@ -480,7 +483,7 @@ const styles = StyleSheet.create({
   cardRow: {
     flexDirection:     'row',
     alignItems:        'center',
-    paddingVertical:   26,
+    paddingVertical:   rs(20),
     paddingHorizontal: 24,
     gap:               16,
   },
@@ -523,7 +526,7 @@ const styles = StyleSheet.create({
   diffRow: {
     flexDirection:   'row',
     gap:             8,
-    paddingBottom:   22,
+    paddingBottom:   rs(16),
     paddingTop:      2,
     justifyContent:  'center',
   },
@@ -554,13 +557,12 @@ const styles = StyleSheet.create({
   // ── Footer controls ─────────────────────────────────────────────────────────
   footerBlock: {
     alignItems: 'center',
-    gap:        14,
-    marginTop:  6,
+    gap:        rs(10),
   },
   section: {
     width:      '100%',
     alignItems: 'center',
-    gap:        8,
+    gap:        rs(6),
   },
   sectionLabel: {
     color:         '#94A3B8',
@@ -573,7 +575,7 @@ const styles = StyleSheet.create({
   segmentWrap: {
     flexDirection:   'row',
     width:           '100%',
-    height:          44,
+    height:          rs(42),
     borderRadius:    14,
     borderWidth:     1,
     borderColor:     '#E2E8F0',
@@ -626,11 +628,9 @@ const styles = StyleSheet.create({
 
   // ── Button group (Play + How to play) ────────────────────────────────────────
   buttonGroup: {
-    alignItems:  'center',
-    gap:         16,
-    marginTop:   28,
-    marginBottom: 20,
-    width:       '100%',
+    alignItems: 'center',
+    gap:        rs(12),
+    width:      '100%',
   },
 
   // ── Play button ──────────────────────────────────────────────────────────────
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
     alignItems:        'center',
     minWidth:          220,
     maxWidth:          260,
-    paddingVertical:   18,
+    paddingVertical:   rs(16),
     paddingHorizontal: 48,
     backgroundColor:   '#D4AF37',
     borderRadius:      50,

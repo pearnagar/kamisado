@@ -7,7 +7,7 @@ export default function DragonWatermark(): React.JSX.Element {
       <Image
         source={require('../../assets/dragon_bg.png')}
         style={styles.image}
-        resizeMode="stretch"
+        resizeMode="cover"
       />
     </View>
   );
