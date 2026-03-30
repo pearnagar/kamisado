@@ -1,20 +1,20 @@
 # Kamisado Mobile — Roadmap
 
-## Phase 1: Scaffold & Core Engine
+## Phase 1: Scaffold & Core Engine ✅
 **Goal:** Playable local 2-player game, no polish.
 
-- [ ] Expo + TypeScript project init (`expo-router`, strict tsconfig)
-- [ ] NativeWind + Reanimated + Gesture Handler setup
-- [ ] EAS configuration (`eas.json` with dev/preview/production profiles)
-- [ ] Board renderer: dynamic cell sizing, correct color grid
-- [ ] Game state model: `GameState`, `Piece`, `Cell`, `Player` types
-- [ ] `SingleRoundStrategy` implementing `IRoundStrategy`
-- [ ] Move validation engine (forward-only, no jumps, no captures)
-- [ ] Lock mechanic: post-move color → opponent's forced piece
-- [ ] Win detection: back-rank landing + stalemate
-- [ ] Local 2-player turn loop (pass device)
+- [x] Expo + TypeScript project init (`expo-router`, strict tsconfig)
+- [x] NativeWind + Reanimated + Gesture Handler setup
+- [x] EAS configuration (`eas.json` with dev/preview/production profiles)
+- [x] Board renderer: dynamic cell sizing, correct color grid
+- [x] Game state model: `GameState`, `Piece`, `Cell`, `Player` types
+- [x] `SingleRoundStrategy` implementing `IRoundStrategy`
+- [x] Move validation engine (forward-only, no jumps, no captures)
+- [x] Lock mechanic: post-move color → opponent's forced piece
+- [x] Win detection: back-rank landing + stalemate
+- [x] Local 2-player turn loop (pass device)
 
-**Exit criteria:** Two people can play a complete game.
+**Exit criteria:** Two people can play a complete game. ✓ Verified (foundation for all subsequent phases).
 
 ---
 
