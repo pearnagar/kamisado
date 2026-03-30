@@ -28,7 +28,6 @@
 - [x] `expo-haptics` on all interactions (select / place / invalid / win)
 - [ ] Sound FX via `expo-av` (piece click, slide, win fanfare)
 - [x] Active dragon pulsing indicator (colorblind-safe)
-- [ ] Dark/light theme via NativeWind
 
 **Exit criteria:** Playtesting feels polished and responsive.
 
