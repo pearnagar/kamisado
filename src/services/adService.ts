@@ -4,11 +4,11 @@ import mobileAds, {
   TestIds,
 } from 'react-native-google-mobile-ads';
 
-// Swap TestIds.INTERSTITIAL for your real Ad Unit ID before production release.
-// Real ID format: 'ca-app-pub-PUBLISHER_ID/AD_UNIT_ID'
+// In production, set ADMOB_ANDROID_INTERSTITIAL_ID in your EAS environment variables.
+// eas.json → build.production.env.ADMOB_ANDROID_INTERSTITIAL_ID
 const INTERSTITIAL_UNIT_ID = __DEV__
   ? TestIds.INTERSTITIAL
-  : 'ca-app-pub-3940256099942544/1033173712'; // TODO: replace with real unit ID
+  : (process.env.ADMOB_ANDROID_INTERSTITIAL_ID ?? TestIds.INTERSTITIAL);
 
 let interstitial: InterstitialAd = createAd();
 let isLoaded = false;

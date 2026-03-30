@@ -145,7 +145,7 @@ export default function RulesScreen(): React.JSX.Element {
 
       {/* Privacy Policy */}
       <Pressable
-        onPress={() => Linking.openURL('https://pearnagar.github.io/kamisado/privacy')}
+        onPress={() => Linking.openURL('https://pearnagar.github.io/kamisado/')}
         style={({ pressed }) => [styles.privacyButton, pressed && styles.privacyButtonPressed]}
       >
         <Text style={styles.privacyText}>Privacy Policy</Text>

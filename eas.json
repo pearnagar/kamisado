@@ -16,7 +16,10 @@
     },
     "production": {
       "autoIncrement": true,
-      "jsEngine": "hermes"
+      "jsEngine": "hermes",
+      "env": {
+        "ADMOB_ANDROID_INTERSTITIAL_ID": "ca-app-pub-4158434771485084/REPLACE_WITH_REAL_UNIT_ID"
+      }
     }
   },
   "submit": {

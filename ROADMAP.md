@@ -202,11 +202,11 @@ Home Screen layout optimized for all aspect ratios; eliminated scrolling using d
 ## Phase 11: Monetization & Production Launch
 **Goal:** Integrate ads, finalise legal requirements, and ship a production-ready AAB to the Google Play Store.
 
-- [ ] AdMob integration — install `react-native-google-mobile-ads`; configure App ID in `app.json`
-- [ ] Ad strategy — interstitial ad on game-over screen (post win/loss overlay dismiss); banner ad on `HomeScreen` footer
-- [ ] Ad test IDs — use Google test Ad Unit IDs in dev/preview builds; real IDs in production via `eas.json` env vars
-- [ ] Privacy Policy — draft and host a Privacy Policy URL (required for Play Store AdMob approval)
-- [ ] `app.json` — add `googleMobileAdsAppId`, confirm `userTrackingUsageDescription` for iOS
+- [x] AdMob integration — `react-native-google-mobile-ads` installed; App ID `ca-app-pub-4158434771485084~6929940197` in `app.json`
+- [x] Ad strategy — `src/services/adService.ts`: `initAds()` + `showGameOverAd()`; interstitial pre-loads on startup, auto-reloads after dismissal
+- [x] Ad test IDs — `TestIds.INTERSTITIAL` in `__DEV__`; production reads `process.env.ADMOB_ANDROID_INTERSTITIAL_ID`
+- [x] Privacy Policy — `docs/index.html` hosted at `https://pearnagar.github.io/kamisado/`; linked from RulesScreen ghost button
+- [x] `app.json` — AdMob plugin configured with real Android App ID; iOS placeholder until iOS launch
 - [ ] Production AAB — run `eas build --platform android --profile production`; verify signing config
 - [ ] Play Store listing — update short/full description, screenshots, content rating, privacy policy URL
 - [ ] Submit — `eas submit --platform android`; respond to any policy review flags
