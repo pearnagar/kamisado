@@ -153,10 +153,13 @@
 ## Phase 8: App Icon & Branding ✅
 **Goal:** Design a premium app icon that aligns with the Kamisado/Dragon theme (Gold/Slate), generate necessary assets for iOS and Android, and configure `app.json` for proper icon display.
 
+**Brand Identity:** Gold `#D4AF37` dragon motif on deep slate `#0F172A` background. Minimalist, high-contrast. Consistent across all surfaces (launcher, Play Store listing, iOS App Store).
+
 - [x] Design `icon.png` — gold dragon motif on slate `#0F172A` background, no transparency (iOS + legacy Android)
 - [x] Design `adaptive-icon.png` (foreground layer) — dragon on transparent background, centred inside safe zone (Android adaptive)
 - [x] Assets placed at `assets/icon.png` and `assets/adaptive-icon.png`
 - [x] Update `app.json`: `icon`, `android.adaptiveIcon.foregroundImage`, `android.adaptiveIcon.backgroundColor: "#0F172A"`
-- [ ] Verify icon renders correctly in Expo Go and a local Android build
+- [x] Verify icon renders correctly on a physical Android device (EAS Preview APK build)
+- [x] Removed all intermediate generated asset folders — single source of truth in `assets/`
 
-**Exit criteria:** App icon is visible on the Android home screen and Play Store listing with correct branding. ✓ Verified 2026-03-17.
+**Exit criteria:** App icon is visible on the Android home screen with correct branding. ✓ Verified on physical device 2026-03-30.
