@@ -195,18 +195,20 @@ Home Screen layout optimized for all aspect ratios; eliminated scrolling using d
 
 **Exit criteria:** Zero `npm audit` vulnerabilities, no secrets in source, R8 on, console.log stripped in production, secure storage utility correctly typed and ready for integration. ✓ Verified 2026-03-30.
 
+**Achievements:** Supply chain audited (0 vulnerabilities), Hermes forced for binary protection, and SecureStore utility implemented.
+
 ---
 
-## Phase 11: Persistence & User Statistics
-**Goal:** Persist game settings and track per-player statistics across sessions using the secure storage foundation from Phase 10.
+## Phase 11: Monetization & Production Launch
+**Goal:** Integrate ads, finalise legal requirements, and ship a production-ready AAB to the Google Play Store.
 
-- [ ] Define `UserStats` type: `gamesPlayed`, `wins`, `losses`, `winStreak`, `bestStreak` — keyed by `PlayerMode` + `Difficulty`
-- [ ] `src/engine/statsEngine.ts` — pure functions: `recordResult`, `getStats`, `resetStats`
-- [ ] Wire `recordResult` into `Board.tsx` win/timeout handlers
-- [ ] Persist stats via `saveSecure` / `loadSecure` (key: `kamisado_stats_v1`)
-- [ ] Persist last-used settings (board variant, game mode, difficulty) via `saveSecure` (key: `kamisado_settings_v1`)
-- [ ] Hydrate settings on `HomeScreen` mount — restore user's last selections
-- [ ] `StatsScreen` — new route showing lifetime stats per difficulty with gold accent highlights
-- [ ] "Stats" button on `HomeScreen` (ghost/outline style, matching "How to play")
+- [ ] AdMob integration — install `react-native-google-mobile-ads`; configure App ID in `app.json`
+- [ ] Ad strategy — interstitial ad on game-over screen (post win/loss overlay dismiss); banner ad on `HomeScreen` footer
+- [ ] Ad test IDs — use Google test Ad Unit IDs in dev/preview builds; real IDs in production via `eas.json` env vars
+- [ ] Privacy Policy — draft and host a Privacy Policy URL (required for Play Store AdMob approval)
+- [ ] `app.json` — add `googleMobileAdsAppId`, confirm `userTrackingUsageDescription` for iOS
+- [ ] Production AAB — run `eas build --platform android --profile production`; verify signing config
+- [ ] Play Store listing — update short/full description, screenshots, content rating, privacy policy URL
+- [ ] Submit — `eas submit --platform android`; respond to any policy review flags
 
-**Exit criteria:** Stats persist across app restarts; settings restored on relaunch; StatsScreen accessible from Home.
+**Exit criteria:** App live on Google Play Store with AdMob ads serving in production.
