@@ -182,13 +182,31 @@ Home Screen layout optimized for all aspect ratios; eliminated scrolling using d
 
 ---
 
-## Phase 10: Security Hardening & Supply Chain Audit 🔒
+## Phase 10: Security Hardening & Supply Chain Audit ✅
 **Goal:** Secure the app's internal logic, data storage, and dependency chain before full production release.
 
 - [x] `npm audit fix` — resolved 6 transitive vulnerabilities (1 critical Handlebars, 3 high: flatted/node-forge/picomatch, 2 moderate: brace-expansion/yaml)
 - [x] Static analysis scan — no hardcoded API keys, secrets, or internal server paths found in source files
+- [x] R8 (code shrinking + obfuscation) — enabled by default in EAS production AAB builds; verified no config disables it
 - [x] `eas.json` production profile — `"jsEngine": "hermes"` explicitly declared
-- [x] `expo-secure-store` installed
-- [x] `src/utils/security.ts` — `saveSecure` / `loadSecure` / `deleteSecure` wrapper over `expo-secure-store` (replaces raw AsyncStorage for sensitive data)
+- [x] `babel.config.js` — `transform-remove-console` plugin strips all `console.log` (preserves `error`/`warn`) in `NODE_ENV=production` builds
+- [x] `expo-secure-store` installed; plugin registered in `app.json`
+- [x] `src/utils/security.ts` — `isSecureStoreAvailable` / `saveSecure` / `loadSecure` / `deleteSecure`; availability guard fixed (was checking function reference, not calling it)
 
-**Exit criteria:** Zero `npm audit` vulnerabilities, no secrets in source, Hermes confirmed, secure storage utility ready for integration.
+**Exit criteria:** Zero `npm audit` vulnerabilities, no secrets in source, R8 on, console.log stripped in production, secure storage utility correctly typed and ready for integration. ✓ Verified 2026-03-30.
+
+---
+
+## Phase 11: Persistence & User Statistics
+**Goal:** Persist game settings and track per-player statistics across sessions using the secure storage foundation from Phase 10.
+
+- [ ] Define `UserStats` type: `gamesPlayed`, `wins`, `losses`, `winStreak`, `bestStreak` — keyed by `PlayerMode` + `Difficulty`
+- [ ] `src/engine/statsEngine.ts` — pure functions: `recordResult`, `getStats`, `resetStats`
+- [ ] Wire `recordResult` into `Board.tsx` win/timeout handlers
+- [ ] Persist stats via `saveSecure` / `loadSecure` (key: `kamisado_stats_v1`)
+- [ ] Persist last-used settings (board variant, game mode, difficulty) via `saveSecure` (key: `kamisado_settings_v1`)
+- [ ] Hydrate settings on `HomeScreen` mount — restore user's last selections
+- [ ] `StatsScreen` — new route showing lifetime stats per difficulty with gold accent highlights
+- [ ] "Stats" button on `HomeScreen` (ghost/outline style, matching "How to play")
+
+**Exit criteria:** Stats persist across app restarts; settings restored on relaunch; StatsScreen accessible from Home.
