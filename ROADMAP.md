@@ -207,6 +207,7 @@ Home Screen layout optimized for all aspect ratios; eliminated scrolling using d
 - [x] Ad test IDs — `TestIds.INTERSTITIAL` in `__DEV__`; production reads `process.env.ADMOB_ANDROID_INTERSTITIAL_ID`
 - [x] Privacy Policy — `docs/index.html` hosted at `https://pearnagar.github.io/kamisado/`; linked from RulesScreen ghost button
 - [x] `app.json` — AdMob plugin configured with real Android App ID; iOS placeholder until iOS launch
+- [x] EAS secret management — `jsEngine` removed from `eas.json` (now in `app.json`); `ADMOB_ANDROID_INTERSTITIAL_ID` managed via `eas env:create` rather than committed plaintext
 - [ ] Production AAB — run `eas build --platform android --profile production`; verify signing config
 - [ ] Play Store listing — update short/full description, screenshots, content rating, privacy policy URL
 - [ ] Submit — `eas submit --platform android`; respond to any policy review flags
