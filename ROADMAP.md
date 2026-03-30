@@ -179,3 +179,16 @@ Home Screen layout optimized for all aspect ratios; eliminated scrolling using d
 - [x] Verify layout on small (360×640) and large (412×915) device profiles
 
 **Exit criteria:** Home Screen content fits without scrolling on all common Android screen sizes, with no clipping or overflow. ✓ Verified 2026-03-30.
+
+---
+
+## Phase 10: Security Hardening & Supply Chain Audit 🔒
+**Goal:** Secure the app's internal logic, data storage, and dependency chain before full production release.
+
+- [x] `npm audit fix` — resolved 6 transitive vulnerabilities (1 critical Handlebars, 3 high: flatted/node-forge/picomatch, 2 moderate: brace-expansion/yaml)
+- [x] Static analysis scan — no hardcoded API keys, secrets, or internal server paths found in source files
+- [x] `eas.json` production profile — `"jsEngine": "hermes"` explicitly declared
+- [x] `expo-secure-store` installed
+- [x] `src/utils/security.ts` — `saveSecure` / `loadSecure` / `deleteSecure` wrapper over `expo-secure-store` (replaces raw AsyncStorage for sensitive data)
+
+**Exit criteria:** Zero `npm audit` vulnerabilities, no secrets in source, Hermes confirmed, secure storage utility ready for integration.
